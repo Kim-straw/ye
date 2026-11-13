@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f3a5f">
+  <title>{% block title %}스펙로드{% endblock %}</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">스펙로드</a>
+    {% if user %}<span class="who">{{ user.nickname }} · {{ user.department.name }} {{ user.grade }}학년</span>{% endif %}
+  </header>
+
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- 앱처럼 보이게 하는 하단 탭 -->
+  <nav class="tabbar">
+    <a href="/me" class="{{ 'on' if request.url.path == '/me' }}">추천</a>
+    <a href="/opportunities" class="{{ 'on' if request.url.path.startswith('/opportunities') }}">활동</a>
+    <a href="/jobs" class="{{ 'on' if request.url.path.startswith('/jobs') or request.url.path.startswith('/gap') }}">갭 분석</a>
+    <a href="/profile/new" class="{{ 'on' if request.url.path.startswith('/profile') }}">내 정보</a>
+  </nav>
+
+  <script>
+    // 서비스 워커 등록: 폰 '홈 화면에 추가'와 오프라인 안내를 가능하게 함
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+  </script>
+</body>
+</html>

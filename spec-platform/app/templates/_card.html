@@ -1,0 +1,13 @@
+{# 활동 카드 한 장. o = Opportunity, reasons = 추천 이유(선택) #}
+{% set left = (o.deadline - today()).days %}
+<a class="card" href="/opportunities/{{ o.id }}">
+  <div class="card-top">
+    <span class="badge {{ 'campus' if o.scope == '교내' else 'outside' }}">{{ o.scope }}</span>
+    <span class="badge">{{ o.category }}</span>
+    {% if o.is_sample %}<span class="badge sample">샘플</span>{% endif %}
+    <span class="dday {{ 'urgent' if 0 <= left <= 7 }}">{{ '마감' if left < 0 else ('D-' ~ left) }}</span>
+  </div>
+  <h3>{{ o.title }}</h3>
+  <p class="muted small">{{ o.host }} · 난이도 {{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }} · 약 {{ o.hours }}시간</p>
+  {% if reasons %}<p class="reasons">{{ reasons | join(' · ') }}</p>{% endif %}
+</a>

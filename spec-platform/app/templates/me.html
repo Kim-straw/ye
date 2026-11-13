@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}추천 · 스펙로드{% endblock %}
+{% block content %}
+<h1>{{ user.nickname }}님을 위한 추천</h1>
+<p class="muted small">관심 분야: {{ (user.tags + user.department.tags) | map(attribute='name') | unique | join(', ') }}</p>
+
+<h2>우리 학교 프로그램</h2>
+{% for r in campus_recs %}
+  {% with o = r.opportunity, reasons = r.reasons %}{% include "_card.html" %}{% endwith %}
+{% else %}
+  <p class="empty">관심 분야와 맞는 교내 프로그램이 없습니다. <a href="/profile/new">관심 분야</a>를 늘려 보세요.</p>
+{% endfor %}
+
+<h2>대외활동</h2>
+{% for r in outside_recs %}
+  {% with o = r.opportunity, reasons = r.reasons %}{% include "_card.html" %}{% endwith %}
+{% else %}
+  <p class="empty">맞는 대외활동이 없습니다.</p>
+{% endfor %}
+
+<a class="btn ghost" href="/jobs">희망 직무와 비교해 보기</a>
+{% endblock %}

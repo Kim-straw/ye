@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ r.job.name }} 갭 분석 · 스펙로드{% endblock %}
+{% block content %}
+<p class="eyebrow">{{ r.job.sector }} {% if r.job.is_sample %}<span class="badge sample">샘플 요건</span>{% endif %}</p>
+<h1>{{ r.job.name }}</h1>
+
+<div class="meter-box">
+  <div class="meter-label"><b>필수 요건 충족률</b><b>{{ r.required_rate }}%</b></div>
+  <div class="meter"><span style="width: {{ r.required_rate }}%"></span></div>
+  <p class="muted small">필수 {{ r.required_met }}/{{ r.required_total }} · 우대 {{ r.preferred_met }}/{{ r.preferred_total }}</p>
+</div>
+
+{% for i in r.items %}
+  <div class="gap-item {{ 'ok' if i.status == '충족' else 'miss' }}">
+    <div class="gap-head">
+      <span class="badge {{ 'must' if i.level == '필수' }}">{{ i.level }}</span>
+      <b>{{ i.spec_name }}</b>
+      <span class="status">{{ i.status }}</span>
+    </div>
+    <p class="muted small">{{ i.detail }}</p>
+    {% if i.fillers %}
+      <p class="small"><b>이걸로 채울 수 있어요</b></p>
+      {% for o in i.fillers %}
+        {% with reasons = none %}{% include "_card.html" %}{% endwith %}
+      {% endfor %}
+    {% elif i.status != '충족' %}
+      <p class="small muted">연결된 활동이 아직 없습니다. 개인 준비가 필요합니다.</p>
+    {% endif %}
+  </div>
+{% endfor %}
+
+<p class="notice small">요건은 실제 채용공고가 아닌 시연용 샘플입니다. 실제 서비스에서는 공고 링크를 출처로 함께 표시합니다.</p>
+<a class="btn ghost" href="/jobs">다른 직무 보기</a>
+{% endblock %}

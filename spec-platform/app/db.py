@@ -1,0 +1,162 @@
+"""창고(DB) 연결과 테이블 정의.
+
+클래스 하나 = 테이블(엑셀 시트) 하나, 클래스 속성 하나 = 칸(열) 하나입니다.
+"""
+from datetime import date
+from pathlib import Path
+
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table, Text, Boolean, create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
+
+DB_PATH = Path(__file__).resolve().parent.parent / "app.db"
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine, autoflush=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+# ---- 다대다 연결표: 값 없이 "누가 누구와 연결됐는지"만 적는 표 ----
+department_tags = Table(
+    "department_tags", Base.metadata,
+    Column("department_id", ForeignKey("departments.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+user_tags = Table(
+    "user_tags", Base.metadata,
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+opportunity_tags = Table(
+    "opportunity_tags", Base.metadata,
+    Column("opportunity_id", ForeignKey("opportunities.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+# "이 활동을 하면 이 스펙이 생긴다" (갭 분석 추천에 사용)
+opportunity_specs = Table(
+    "opportunity_specs", Base.metadata,
+    Column("opportunity_id", ForeignKey("opportunities.id"), primary_key=True),
+    Column("spec_id", ForeignKey("specs.id"), primary_key=True),
+)
+
+
+class School(Base):
+    __tablename__ = "schools"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50))
+    campus: Mapped[str] = mapped_column(String(30))
+    departments: Mapped[list["Department"]] = relationship(back_populates="school")
+
+
+class Department(Base):
+    __tablename__ = "departments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    school_id: Mapped[int] = mapped_column(ForeignKey("schools.id"))  # 외래키: 어느 학교 소속인지
+    college: Mapped[str] = mapped_column(String(50))
+    name: Mapped[str] = mapped_column(String(50))
+    school: Mapped[School] = relationship(back_populates="departments")
+    tags: Mapped[list["Tag"]] = relationship(secondary=department_tags)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(30), unique=True)
+
+
+class Spec(Base):
+    __tablename__ = "specs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+    kind: Mapped[str] = mapped_column(String(10))  # 자격증 / 어학 / 경험
+    has_score: Mapped[bool] = mapped_column(Boolean, default=False)  # 토익처럼 점수가 있는 스펙
+
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    school_id: Mapped[int] = mapped_column(ForeignKey("schools.id"))
+    department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"))
+    nickname: Mapped[str] = mapped_column(String(20))
+    grade: Mapped[int] = mapped_column(Integer)           # 학년
+    admission_year: Mapped[int] = mapped_column(Integer)  # 입학년도 (학번 전체는 받지 않음)
+    gpa: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mileage: Mapped[int] = mapped_column(Integer, default=0)  # 6단계용 자리만 마련
+    department: Mapped[Department] = relationship()
+    tags: Mapped[list[Tag]] = relationship(secondary=user_tags)
+    specs: Mapped[list["UserSpec"]] = relationship(cascade="all, delete-orphan")
+
+
+class UserSpec(Base):
+    """보유 스펙. 연결표지만 '점수' 값이 있어서 클래스로 만듦."""
+    __tablename__ = "user_specs"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    spec_id: Mapped[int] = mapped_column(ForeignKey("specs.id"), primary_key=True)
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    spec: Mapped[Spec] = relationship()
+
+
+class Opportunity(Base):
+    """교내 프로그램 + 대외활동을 한 테이블에. scope로 구분."""
+    __tablename__ = "opportunities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    school_id: Mapped[int | None] = mapped_column(ForeignKey("schools.id"), nullable=True)  # 외부 활동이면 비움
+    scope: Mapped[str] = mapped_column(String(10))      # 교내 / 외부
+    category: Mapped[str] = mapped_column(String(20))   # 비교과 / 서포터즈 / 기자단 / 공모전 ...
+    title: Mapped[str] = mapped_column(String(100))
+    host: Mapped[str] = mapped_column(String(50))
+    description: Mapped[str] = mapped_column(Text, default="")
+    difficulty: Mapped[int] = mapped_column(Integer)    # 1~5
+    hours: Mapped[int] = mapped_column(Integer)         # 총 소요시간(시간)
+    deadline: Mapped[date] = mapped_column(Date)
+    url: Mapped[str] = mapped_column(String(200), default="")
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=True)
+    tags: Mapped[list[Tag]] = relationship(secondary=opportunity_tags)
+    specs: Mapped[list[Spec]] = relationship(secondary=opportunity_specs)
+    reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan", order_by="Review.id.desc()")
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    rating: Mapped[int] = mapped_column(Integer)  # 1~5
+    content: Mapped[str] = mapped_column(Text)
+    user: Mapped[User | None] = relationship()
+
+
+class Job(Base):
+    __tablename__ = "jobs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(50))
+    sector: Mapped[str] = mapped_column(String(10))  # 사기업 / 공기업 / 공단
+    description: Mapped[str] = mapped_column(Text, default="")
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=True)
+    requirements: Mapped[list["JobRequirement"]] = relationship(cascade="all, delete-orphan")
+
+
+class JobRequirement(Base):
+    """채용공고의 자격요건. 합격자 스펙 대신 공고 기준을 씀(출처가 명확하므로)."""
+    __tablename__ = "job_requirements"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"))
+    spec_id: Mapped[int] = mapped_column(ForeignKey("specs.id"))
+    level: Mapped[str] = mapped_column(String(5))  # 필수 / 우대
+    min_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_url: Mapped[str] = mapped_column(String(200), default="")
+    spec: Mapped[Spec] = relationship()
+
+
+def get_db():
+    """요청 하나마다 창고 출입증(세션)을 열고, 끝나면 반드시 닫음."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db():
+    Base.metadata.create_all(engine)

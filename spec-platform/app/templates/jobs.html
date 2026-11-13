@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}직무 선택 · 스펙로드{% endblock %}
+{% block content %}
+<h1>희망 직무를 고르세요</h1>
+<p class="muted">채용공고의 필수·우대 요건과 내 스펙을 비교합니다.</p>
+
+{% for sector in ['사기업', '공기업', '공단'] %}
+  {% set group = jobs | selectattr('sector', 'equalto', sector) | list %}
+  {% if group %}
+  <h2>{{ sector }}</h2>
+  {% for j in group %}
+    <a class="card" href="/gap/{{ j.id }}">
+      <div class="card-top">{% if j.is_sample %}<span class="badge sample">샘플</span>{% endif %}</div>
+      <h3>{{ j.name }}</h3>
+      <p class="muted small">{{ j.description }}</p>
+    </a>
+  {% endfor %}
+  {% endif %}
+{% endfor %}
+{% endblock %}

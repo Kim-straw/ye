@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ o.title }} · 스펙로드{% endblock %}
+{% block content %}
+{% set left = (o.deadline - today()).days %}
+<div class="card-top">
+  <span class="badge {{ 'campus' if o.scope == '교내' else 'outside' }}">{{ o.scope }}</span>
+  <span class="badge">{{ o.category }}</span>
+  {% if o.is_sample %}<span class="badge sample">샘플</span>{% endif %}
+</div>
+<h1>{{ o.title }}</h1>
+<p class="muted">{{ o.host }}</p>
+
+<dl class="facts">
+  <div><dt>마감</dt><dd>{{ o.deadline }} ({{ '마감됨' if left < 0 else 'D-' ~ left }})</dd></div>
+  <div><dt>난이도</dt><dd>{{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }}</dd></div>
+  <div><dt>소요시간</dt><dd>약 {{ o.hours }}시간</dd></div>
+  <div><dt>후기 평점</dt><dd>{{ avg ~ ' / 5 (' ~ o.reviews|length ~ '개)' if avg else '아직 없음' }}</dd></div>
+</dl>
+
+<p>{{ o.description }}</p>
+<p class="small">분야: {{ o.tags | map(attribute='name') | join(', ') }}</p>
+{% if o.specs %}<p class="small">얻을 수 있는 스펙: {{ o.specs | map(attribute='name') | join(', ') }}</p>{% endif %}
+{% if rec and rec.reasons %}<p class="reasons">추천 이유: {{ rec.reasons | join(' · ') }} ({{ rec.score }}점)</p>{% endif %}
+{% if o.url %}<a class="btn" href="{{ o.url }}" target="_blank" rel="noopener">원문 공고 보기</a>{% endif %}
+
+<h2>후기</h2>
+{% for rv in o.reviews %}
+  <div class="review"><b>{{ '★' * rv.rating }}{{ '☆' * (5 - rv.rating) }}</b> <span class="muted small">{{ rv.user.nickname if rv.user else '익명' }}</span><p>{{ rv.content }}</p></div>
+{% else %}
+  <p class="empty">첫 후기를 남겨 주세요.</p>
+{% endfor %}
+
+{% if user %}
+<form method="post" action="/opportunities/{{ o.id }}/reviews" class="form">
+  <label>평점
+    <select name="rating">{% for n in range(5, 0, -1) %}<option value="{{ n }}">{{ n }}점</option>{% endfor %}</select>
+  </label>
+  <label>후기 (5~500자, 개인정보는 쓰지 마세요)
+    <textarea name="content" minlength="5" maxlength="500" required rows="3"></textarea>
+  </label>
+  <button class="btn" type="submit">후기 등록</button>
+</form>
+{% else %}
+<p class="muted small"><a href="/profile/new">프로필</a>을 만들면 후기를 남길 수 있습니다.</p>
+{% endif %}
+{% endblock %}

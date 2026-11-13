@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}활동 · 스펙로드{% endblock %}
+{% block content %}
+<h1>전체 활동</h1>
+
+<form class="filters" method="get">
+  <select name="scope" onchange="this.form.submit()">
+    <option value="">교내 + 외부</option>
+    <option value="교내" {{ 'selected' if scope == '교내' }}>교내만</option>
+    <option value="외부" {{ 'selected' if scope == '외부' }}>외부만</option>
+  </select>
+  <select name="category" onchange="this.form.submit()">
+    <option value="">전체 분류</option>
+    {% for c in categories %}<option {{ 'selected' if category == c }}>{{ c }}</option>{% endfor %}
+  </select>
+  <label class="check small"><input type="checkbox" name="show_closed" value="true" {{ 'checked' if show_closed }} onchange="this.form.submit()"> 마감 포함</label>
+</form>
+
+<p class="muted small">{{ items | length }}개 · 마감 빠른 순</p>
+{% for o in items %}
+  {% with reasons = none %}{% include "_card.html" %}{% endwith %}
+{% else %}
+  <p class="empty">조건에 맞는 활동이 없습니다.</p>
+{% endfor %}
+{% endblock %}
