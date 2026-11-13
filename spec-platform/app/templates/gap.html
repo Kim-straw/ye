@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ r.job.name }} 갭 분석 · 스펙로드{% endblock %}
 {% block content %}
-<p class="eyebrow">{{ r.job.sector }} {% if r.job.is_sample %}<span class="badge sample">샘플 요건</span>{% endif %}</p>
+<p class="eyebrow">{{ r.job.sector }} {% if r.job.is_sample %}<span class="badge sample">샘플 요건</span>{% else %}<span class="badge real">실제 공고</span>{% endif %}</p>
 <h1>{{ r.job.name }}</h1>
 
 <div class="meter-box">
@@ -29,6 +29,12 @@
   </div>
 {% endfor %}
 
-<p class="notice small">요건은 실제 채용공고가 아닌 시연용 샘플입니다. 실제 서비스에서는 공고 링크를 출처로 함께 표시합니다.</p>
+{% if r.job.is_sample %}
+<p class="notice small">요건은 실제 채용공고가 아닌 시연용 샘플입니다.</p>
+{% else %}
+<p class="notice small">요건은 공고의 지원자격·우대조건 글에서 스펙 단어를 찾아 자동으로 뽑은 것이라 빠지거나 틀릴 수 있습니다. 반드시 원문을 확인하세요.
+  {% if r.job.deadline %}마감 {{ r.job.deadline }}.{% endif %}</p>
+{% if r.job.source_url %}<a class="btn" href="{{ r.job.source_url }}" target="_blank" rel="noopener">원문 공고 보기</a>{% endif %}
+{% endif %}
 <a class="btn ghost" href="/jobs">다른 직무 보기</a>
 {% endblock %}

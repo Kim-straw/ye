@@ -136,6 +136,10 @@ class Job(Base):
     sector: Mapped[str] = mapped_column(String(10))  # 사기업 / 공기업 / 공단
     description: Mapped[str] = mapped_column(Text, default="")
     is_sample: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 아래 3개는 실제 채용공고(API)에서 온 직무에만 채워짐
+    source_id: Mapped[str | None] = mapped_column(String(50), nullable=True)   # 공고 번호 (중복 저장 방지)
+    source_url: Mapped[str] = mapped_column(String(300), default="")           # 원문 공고 링크
+    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)         # 공고 마감일
     requirements: Mapped[list["JobRequirement"]] = relationship(cascade="all, delete-orphan")
 
 
@@ -147,7 +151,7 @@ class JobRequirement(Base):
     spec_id: Mapped[int] = mapped_column(ForeignKey("specs.id"))
     level: Mapped[str] = mapped_column(String(5))  # 필수 / 우대
     min_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    source_url: Mapped[str] = mapped_column(String(200), default="")
+    source_url: Mapped[str] = mapped_column(String(300), default="")
     spec: Mapped[Spec] = relationship()
 
 

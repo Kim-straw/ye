@@ -176,9 +176,17 @@ def write_review(opp_id: int, rating: int = Form(..., ge=1, le=5), content: str 
     return RedirectResponse(f"/opportunities/{opp_id}", status_code=303)
 
 
+def visible_jobs(db: Session) -> list[Job]:
+    """실제 공고(마감 안 지난 것)가 하나라도 있으면 그것만, 없으면 샘플 직무를 보여 줌"""
+    today = date.today()
+    jobs = db.scalars(select(Job)).all()
+    real = [j for j in jobs if not j.is_sample and (j.deadline is None or j.deadline >= today)]
+    return real or [j for j in jobs if j.is_sample]
+
+
 @app.get("/jobs", response_class=HTMLResponse)
 def job_list(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
-    return templates.TemplateResponse(request, "jobs.html", {"user": user, "jobs": db.scalars(select(Job)).all()})
+    return templates.TemplateResponse(request, "jobs.html", {"user": user, "jobs": visible_jobs(db)})
 
 
 @app.get("/gap/{job_id}", response_class=HTMLResponse)
@@ -225,7 +233,9 @@ def api_recommendations(scope: str | None = None, db: Session = Depends(get_db),
 
 @app.get("/api/jobs", tags=["api"])
 def api_jobs(db: Session = Depends(get_db)):
-    return [{"id": j.id, "name": j.name, "sector": j.sector} for j in db.scalars(select(Job))]
+    return [{"id": j.id, "name": j.name, "sector": j.sector, "is_sample": j.is_sample,
+             "deadline": j.deadline.isoformat() if j.deadline else None, "url": j.source_url}
+            for j in visible_jobs(db)]
 
 
 @app.get("/api/gap/{job_id}", tags=["api"])

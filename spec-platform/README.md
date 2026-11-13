@@ -15,10 +15,19 @@ python -m venv .venv
 pip install -r requirements.txt
 python -m app.seed              # 기본값 + 확인된 실제 학교 공지 (가상 활동 없음)
 python -m app.rss_import        # 학교 게시판 RSS에서 실제 공지 가져오기 (인터넷 필요)
+python -m app.job_import --dump # (.env 필요) 채용공고 API 응답 항목 이름만 확인, DB 변경 없음
+python -m app.job_import        # 진행 중인 공공기관 채용공고를 받아 직무·자격요건으로 저장
 uvicorn app.main:app --reload   # 서버 켜기
 ```
 
-- `seed`는 DB를 통째로 다시 만듭니다. 그래서 순서는 항상 **seed → rss_import** 입니다.
+- `seed`는 DB를 통째로 다시 만듭니다. 그래서 순서는 항상 **seed → rss_import → job_import** 입니다.
+- `job_import`에는 `.env`가 필요합니다 (`.env`는 깃허브에 올라가지 않습니다).
+  ```
+  DATA_GO_KR_KEY=Decoding_인증키
+  JOB_API_URL=https://apis.data.go.kr/1051000/recruitment/list
+  ```
+- 실제 채용공고가 DB에 하나라도 있으면 직무 화면에는 그것만 보이고, 없을 때만 샘플 직무가 보입니다.
+- 공고 글에서 스펙 단어를 찾아 요건으로 만드는 방식(`SPEC_PATTERNS`)이라 빠지거나 틀릴 수 있습니다. 화면에 원문 링크를 함께 보여 줍니다.
 - 수집할 게시판은 `app/rss_import.py`의 `FEEDS` 목록에서 관리합니다. **로그인 없이 열리는 것을 확인한 RSS 주소만** 넣습니다.
 - RSS에는 마감일이 없어서, 마감일 없는 학교 공지는 **게시 후 60일까지만** 목록과 추천에 나옵니다 (`logic.py`의 `FRESH_DAYS`).
 
