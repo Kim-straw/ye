@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">세종캠 학생을 위한 프로그램 모음</p>
+  <h1>흩어진 교내 프로그램을<br>내 관심 분야 순으로,<br>한 번에.</h1>
+  <p>학과와 관심 분야만 고르면 학교 게시판에 흩어진 프로그램과 대외활동을 모아 보여 드립니다.</p>
+  {% if user %}
+    <a class="btn" href="/me">내 추천 보기</a>
+  {% else %}
+    <a class="btn" href="/profile/new">1분 만에 시작하기</a>
+  {% endif %}
+</section>
+
+<section class="steps">
+  <div class="step"><b>1</b><div><h3>프로필</h3><p>세종캠퍼스 학과·전공 중 내 학과와 관심 분야</p></div></div>
+  <div class="step"><b>2</b><div><h3>추천</h3><p>학교 게시판 RSS로 모은 실제 공지를 분야가 맞는 순서로</p></div></div>
+  <div class="step"><b>3</b><div><h3>직접 등록</h3><p>로그인이 필요한 곳의 프로그램은 엑셀(CSV)로 직접 등록</p></div></div>
+</section>
+
+<h2>최근 올라온 학교 공지</h2>
+{% for o in recent %}
+  <a class="card mini" href="/opportunities/{{ o.id }}" style="margin-bottom:.5rem">
+    <p class="muted small">{{ o.host }}{% if o.posted_at %} · {{ o.posted_at }}{% endif %}</p>
+    <h3>{{ o.title }}</h3>
+  </a>
+{% else %}
+  <p class="empty">아직 가져온 공지가 없습니다. <code>python -m app.rss_import</code>를 실행해 주세요.</p>
+{% endfor %}
+{% endblock %}

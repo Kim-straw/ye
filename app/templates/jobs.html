@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}직무 선택 · 스펙로드{% endblock %}
+{% block content %}
+<h1>희망 직무를 고르세요</h1>
+<p class="muted">채용공고의 필수·우대 요건과 내 스펙을 비교합니다.</p>
+{% if jobs and jobs[0].is_sample %}
+  <p class="notice small">아직 실제 채용공고를 가져오지 않아 시연용 샘플 직무를 보여 줍니다. <code>python -m app.job_import</code>로 실제 공고를 가져올 수 있습니다.</p>
+{% endif %}
+
+{% for sector in ['공공기관', '사기업', '공기업', '공단'] %}
+  {% set group = jobs | selectattr('sector', 'equalto', sector) | list %}
+  {% if group %}
+  <h2>{{ sector }}</h2>
+  {% for j in group %}
+    <a class="card" href="/gap/{{ j.id }}">
+      <div class="card-top">
+        {% if j.is_sample %}<span class="badge sample">샘플</span>{% else %}<span class="badge real">실제 공고</span>{% endif %}
+        {% if j.deadline %}{% set left = (j.deadline - today()).days %}<span class="dday {{ 'urgent' if 0 <= left <= 7 }}">D-{{ left }}</span>{% endif %}
+      </div>
+      <h3>{{ j.name }}</h3>
+      {% if j.description %}<p class="muted small">{{ j.description }}</p>{% endif %}
+    </a>
+  {% endfor %}
+  {% endif %}
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,66 @@
+"""자동 점검: 프로필 만들기 -> 추천 -> 갭 분석 -> 후기까지 가는 흐름을 가짜 브라우저로 돌려 봄.
+가상 활동은 없으므로, 최근 날짜의 모집 글이 든 테스트용 RSS를 넣고 확인함.
+실행: python -m pytest -q   (spec-platform 폴더에서)
+"""
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.db import Opportunity, SessionLocal
+from tests.test_rss import fresh_db_with_rss
+
+
+def setup_module():
+    fresh_db_with_rss()[0].close()
+
+
+def client_with_profile():
+    from app.main import app
+    client = TestClient(app)
+    # 컴퓨터융합소프트웨어학과(id=1), 관심: 경영(id=5), 스펙: SQLD(id=2) + TOEIC(id=6) 650점
+    r = client.post("/profile", data={
+        "nickname": "테스트", "department_id": 1, "grade": 3, "admission_year": 2024, "gpa": "3.5",
+        "tag_ids": ["5"], "spec_ids": ["2", "6"], "score_6": "650",
+    }, follow_redirects=False)
+    assert r.status_code == 303 and "user_id" in r.cookies
+    client.cookies.set("user_id", r.cookies["user_id"])
+    return client
+
+
+def test_no_fake_activities():
+    db = SessionLocal()
+    rows = db.scalars(select(Opportunity)).all()
+    assert rows and all(o.source == "rss" and not o.is_sample and o.url.startswith("https://") for o in rows)
+    db.close()
+
+
+def test_pages_without_profile():
+    from app.main import app
+    client = TestClient(app)
+    assert client.get("/").status_code == 200
+    assert client.get("/opportunities").status_code == 200
+    r = client.get("/me", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/profile/new"
+    assert client.get("/api/me").status_code == 401
+
+
+def test_full_flow():
+    client = client_with_profile()
+    assert "우리 학교 프로그램" in client.get("/me").text
+    recs = client.get("/api/recommendations", params={"scope": "교내"}).json()
+    assert recs and all(x["scope"] == "교내" and x["source"] == "rss" for x in recs)
+    assert client.get("/api/recommendations", params={"scope": "외부"}).json() == []  # 대외활동은 아직 실제 출처 없음
+
+    # 공기업 전산직(id=4): 정보처리기사 필수(없음), TOEIC 700 필수(650 -> 부족)
+    gap = client.get("/api/gap/4").json()
+    status = {i["spec"]: i["status"] for i in gap["items"]}
+    assert status["정보처리기사"] == "없음" and status["TOEIC"] == "부족" and gap["required_rate"] == 0
+    # 백엔드 개발자(id=1): 인턴 경험이 없으면 실제 현장실습 모집 공지가 채울 활동으로 나와야 함
+    intern = next(i for i in client.get("/api/gap/1").json()["items"] if i["spec"] == "인턴 경험")
+    assert any("현장실습" in f["title"] for f in intern["fillers"])
+    for job_id in range(1, 6):
+        assert client.get(f"/gap/{job_id}").status_code == 200
+
+    rid = recs[0]["id"]
+    r = client.post(f"/opportunities/{rid}/reviews", data={"rating": 4, "content": "테스트 후기입니다"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert "테스트 후기입니다" in client.get(f"/opportunities/{rid}").text

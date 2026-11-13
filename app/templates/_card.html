@@ -1,0 +1,22 @@
+{# 활동 카드 한 장. o = Opportunity, reasons = 추천 이유(선택) #}
+<a class="card" href="/opportunities/{{ o.id }}">
+  <div class="card-top">
+    <span class="badge {{ 'in' if o.scope == '교내' else 'out' }}">{{ '교내' if o.scope == '교내' else '대외활동' }}</span>
+    <span class="badge">{{ o.category }}</span>
+    {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% elif o.source == 'manual' %}<span class="badge real">직접 등록</span>{% elif o.source == 'api' %}<span class="badge real">공공데이터</span>{% endif %}
+    {% if o.deadline %}
+      {% set left = (o.deadline - today()).days %}
+      <span class="dday {{ 'urgent' if 0 <= left <= 7 }}">{{ '마감' if left < 0 else ('D-' ~ left) }}</span>
+    {% elif o.posted_at %}
+      <span class="dday">{{ o.posted_at.strftime('%m.%d') if o.posted_at.year == today().year else o.posted_at.strftime('%Y.%m.%d') }} 게시</span>
+    {% endif %}
+  </div>
+  <h3>{{ o.title }}</h3>
+  <p class="muted small">
+    {{ o.host }}
+    {% if o.difficulty %} · 난이도 {{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }}{% endif %}
+    {% if o.hours %} · 약 {{ o.hours }}시간{% endif %}
+    {% if not o.deadline %} · 마감일은 원문 확인{% endif %}
+  </p>
+  {% if reasons %}<p class="reasons">{{ reasons | join(' · ') }}</p>{% endif %}
+</a>
