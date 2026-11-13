@@ -16,7 +16,7 @@
   <label class="check small"><input type="checkbox" name="show_closed" value="true" {{ 'checked' if show_closed }} onchange="this.form.submit()"> 마감 포함</label>
 </form>
 
-<p class="muted small">{{ items | length }}개 · 마감 빠른 순</p>
+<p class="muted small">{{ items | length }}개 · 마감 빠른 순 (마감일 없는 학교 공지는 최근 게시 순으로 뒤에)</p>
 {% for o in items %}
   {% with reasons = none %}{% include "_card.html" %}{% endwith %}
 {% else %}

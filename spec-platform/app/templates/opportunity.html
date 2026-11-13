@@ -1,19 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ o.title }} · 스펙로드{% endblock %}
 {% block content %}
-{% set left = (o.deadline - today()).days %}
 <div class="card-top">
   <span class="badge {{ 'campus' if o.scope == '교내' else 'outside' }}">{{ o.scope }}</span>
   <span class="badge">{{ o.category }}</span>
-  {% if o.is_sample %}<span class="badge sample">샘플</span>{% endif %}
+  {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% endif %}
 </div>
 <h1>{{ o.title }}</h1>
-<p class="muted">{{ o.host }}</p>
+<p class="muted">{{ o.host }}{% if o.posted_at %} · {{ o.posted_at }} 게시{% endif %}</p>
 
 <dl class="facts">
-  <div><dt>마감</dt><dd>{{ o.deadline }} ({{ '마감됨' if left < 0 else 'D-' ~ left }})</dd></div>
-  <div><dt>난이도</dt><dd>{{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }}</dd></div>
-  <div><dt>소요시간</dt><dd>약 {{ o.hours }}시간</dd></div>
+  {% if o.deadline %}
+    {% set left = (o.deadline - today()).days %}
+    <div><dt>마감</dt><dd>{{ o.deadline }} ({{ '마감됨' if left < 0 else 'D-' ~ left }})</dd></div>
+  {% else %}
+    <div><dt>마감</dt><dd>원문 확인</dd></div>
+  {% endif %}
+  <div><dt>난이도</dt><dd>{% if o.difficulty %}{{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }}{% else %}정보 없음{% endif %}</dd></div>
+  <div><dt>소요시간</dt><dd>{{ '약 ' ~ o.hours ~ '시간' if o.hours else '정보 없음' }}</dd></div>
   <div><dt>후기 평점</dt><dd>{{ avg ~ ' / 5 (' ~ o.reviews|length ~ '개)' if avg else '아직 없음' }}</dd></div>
 </dl>
 

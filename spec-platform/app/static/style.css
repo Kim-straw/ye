@@ -69,6 +69,7 @@ h3 { font-size: 1rem; margin: .3rem 0 .2rem; }
 .badge.campus { background: var(--campus); color: var(--campus-text); border-color: transparent; font-weight: 700; }
 .badge.outside { background: var(--outside); color: var(--outside-text); border-color: transparent; font-weight: 700; }
 .badge.sample { background: var(--sample); color: var(--sample-text); border-color: transparent; }
+.badge.real { background: var(--outside); color: var(--outside-text); border-color: transparent; }
 .badge.must { background: var(--primary); color: var(--primary-text); border-color: transparent; }
 .dday { margin-left: auto; font-size: .8rem; font-weight: 700; color: var(--muted); }
 .dday.urgent { color: var(--accent); }

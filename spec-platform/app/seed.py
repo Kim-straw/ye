@@ -3,8 +3,10 @@
 - 모든 데이터는 is_sample=True 로 화면에 '샘플' 표시가 붙습니다.
 - 학과·프로그램 '이름'은 현실에 맞추려 했지만 확인되지 않았습니다. 내용(난이도, 마감일, 요건 등)은 전부 가짜입니다.
 - 실제 학생 개인정보는 넣지 않습니다.
-실행: python -m app.seed   (spec-platform 폴더에서)
+실행: python -m app.seed        (샘플 활동 포함)
+      python -m app.seed real   (샘플 활동·후기 없이: 학과·태그·스펙·직무만)
 """
+import sys
 from datetime import date, timedelta
 
 from .db import (Base, Department, Job, JobRequirement, Opportunity, Review, School, SessionLocal, Spec, Tag,
@@ -78,7 +80,7 @@ REVIEWS = [
 ]
 
 
-def run():
+def run(include_sample_activities: bool = True):
     Base.metadata.drop_all(engine)  # 매번 새로 만듦 (샘플 데이터 전용이라 괜찮음)
     Base.metadata.create_all(engine)
     db = SessionLocal()
@@ -96,7 +98,7 @@ def run():
     db.flush()  # 창고에 임시로 넣어 school.id 번호를 먼저 발급받기
 
     opps = {}
-    for scope, cat, title, host, desc, diff, hours, days, tnames, snames in OPPORTUNITIES:
+    for scope, cat, title, host, desc, diff, hours, days, tnames, snames in (OPPORTUNITIES if include_sample_activities else []):
         o = Opportunity(
             school_id=school.id if scope == "교내" else None, scope=scope, category=cat, title=title,
             host=host, description=desc, difficulty=diff, hours=hours,
@@ -112,13 +114,13 @@ def run():
             JobRequirement(spec=specs[s], level=lv, min_value=mv, source_url="") for s, lv, mv in reqs
         ]))
 
-    for title, rating, content in REVIEWS:
+    for title, rating, content in (REVIEWS if include_sample_activities else []):
         db.add(Review(opportunity_id=opps[title].id, rating=rating, content=content))
 
     db.commit()
     db.close()
-    print("샘플 데이터 입력 완료")
+    print("기본 데이터 입력 완료" + ("" if include_sample_activities else " (샘플 활동 제외)"))
 
 
 if __name__ == "__main__":
-    run()
+    run(include_sample_activities="real" not in sys.argv[1:])

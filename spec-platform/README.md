@@ -13,9 +13,15 @@ cd spec-platform
 python -m venv .venv
 .venv\Scripts\activate          # Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python -m app.seed              # 샘플 데이터 넣기 (app.db 파일이 생김)
+python -m app.seed real         # 학과·태그·스펙·직무 기본값 (샘플 활동 없이)
+python -m app.rss_import        # 학교 게시판 RSS에서 실제 공지 가져오기 (인터넷 필요)
 uvicorn app.main:app --reload   # 서버 켜기
 ```
+
+- 샘플 활동까지 보고 싶으면 `python -m app.seed` (real 없이).
+- `seed`는 DB를 통째로 다시 만듭니다. 그래서 순서는 항상 **seed → rss_import** 입니다.
+- 수집할 게시판은 `app/rss_import.py`의 `FEEDS` 목록에서 관리합니다. **로그인 없이 열리는 것을 확인한 RSS 주소만** 넣습니다.
+- RSS에는 마감일이 없어서, 마감일 없는 학교 공지는 **게시 후 60일까지만** 목록과 추천에 나옵니다 (`logic.py`의 `FRESH_DAYS`).
 
 - 화면: http://localhost:8000
 - API 문서(직접 눌러 보기): http://localhost:8000/docs

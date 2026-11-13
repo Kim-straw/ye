@@ -4,9 +4,9 @@ DB에서 꺼낸 재료(User, Opportunity, Job)를 받아 계산 결과만 돌려
 화면이나 주소(URL)는 모릅니다. 그래서 나중에 앱/웹 어디서든 재사용할 수 있습니다.
 """
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from .db import Job, Opportunity, User
@@ -15,6 +15,16 @@ TAG_WEIGHT = 10        # 겹치는 태그 1개당 점수
 ON_CAMPUS_BONUS = 5    # 교내 프로그램 가산점 (핵심 가치: 교내 정보 접근성)
 URGENT_BONUS = 3       # 마감 임박 가산점
 URGENT_DAYS = 14
+FRESH_DAYS = 60        # 마감일 없는 학교 공지는 게시 후 60일까지만 '모집 중일 수 있음'으로 봄
+
+
+def open_clause(today: date):
+    """'아직 지원 가능한 활동' 조건 (DB 검색용).
+    마감일이 있으면 마감 전, 없으면(학교 공지) 최근 FRESH_DAYS일 안에 올라온 글."""
+    return or_(
+        Opportunity.deadline >= today,
+        and_(Opportunity.deadline.is_(None), Opportunity.posted_at >= today - timedelta(days=FRESH_DAYS)),
+    )
 
 
 def user_tag_ids(user: User) -> set[int]:
@@ -41,23 +51,33 @@ def score_opportunity(user: User, opp: Opportunity, today: date | None = None) -
     if opp.scope == "교내":
         score += ON_CAMPUS_BONUS
         reasons.append("우리 학교 프로그램")
-    days_left = (opp.deadline - today).days
-    if 0 <= days_left <= URGENT_DAYS:
-        score += URGENT_BONUS
-        reasons.append(f"마감 {days_left}일 전")
+    if opp.deadline is not None:
+        days_left = (opp.deadline - today).days
+        if 0 <= days_left <= URGENT_DAYS:
+            score += URGENT_BONUS
+            reasons.append(f"마감 {days_left}일 전")
+    if opp.source == "rss":
+        reasons.append("학교 공지")
     return Recommendation(opp, score, reasons)
+
+
+def sort_key(opp: Opportunity):
+    """마감 빠른 순, 마감일 없는 공지는 뒤로 (최신 공지 먼저)"""
+    if opp.deadline is not None:
+        return (0, opp.deadline.toordinal())
+    return (1, -(opp.posted_at.toordinal() if opp.posted_at else 0))
 
 
 def recommend(db: Session, user: User, scope: str | None = None, limit: int = 5) -> list[Recommendation]:
     today = date.today()
-    query = select(Opportunity).where(Opportunity.deadline >= today)  # 마감 지난 것 제외
+    query = select(Opportunity).where(open_clause(today))  # 마감 지난 것, 오래된 공지 제외
     if scope:
         query = query.where(Opportunity.scope == scope)
     if scope == "교내":
         query = query.where(Opportunity.school_id == user.school_id)  # 다른 학교 프로그램 제외 (확장 대비)
     recs = [score_opportunity(user, o, today) for o in db.scalars(query)]
     recs = [r for r in recs if r.score >= TAG_WEIGHT]  # 관심 태그가 하나도 안 겹치면 제외 (가산점만으로는 10점 미만)
-    recs.sort(key=lambda r: (-r.score, r.opportunity.deadline))
+    recs.sort(key=lambda r: (-r.score, sort_key(r.opportunity)))
     return recs[:limit]
 
 
@@ -104,9 +124,9 @@ def analyze_gap(db: Session, user: User, job: Job) -> GapResult:
         fillers = []
         if status != "충족":
             # 이 스펙을 얻게 해 주는 활동 찾기 (교내 우선, 마감 빠른 순)
-            fillers = [o for o in db.scalars(select(Opportunity).where(Opportunity.deadline >= today))
+            fillers = [o for o in db.scalars(select(Opportunity).where(open_clause(today)))
                        if req.spec_id in {s.id for s in o.specs}]
-            fillers.sort(key=lambda o: (o.scope != "교내", o.deadline))
+            fillers.sort(key=lambda o: (o.scope != "교내", sort_key(o)))
             fillers = fillers[:3]
         items.append(GapItem(req.spec.name, req.level, status, detail, fillers))
 

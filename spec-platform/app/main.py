@@ -140,16 +140,17 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
 @app.get("/opportunities", response_class=HTMLResponse)
 def opportunity_list(request: Request, scope: str = "", category: str = "", show_closed: bool = False,
                      db: Session = Depends(get_db), user: User | None = Depends(current_user)):
-    query = select(Opportunity).order_by(Opportunity.deadline)
+    query = select(Opportunity)
     if scope:
         query = query.where(Opportunity.scope == scope)
     if category:
         query = query.where(Opportunity.category == category)
     if not show_closed:
-        query = query.where(Opportunity.deadline >= date.today())
+        query = query.where(logic.open_clause(date.today()))
+    items = sorted(db.scalars(query).all(), key=logic.sort_key)
     categories = sorted(set(db.scalars(select(Opportunity.category))))
     return templates.TemplateResponse(request, "opportunities.html", {
-        "user": user, "items": db.scalars(query).all(), "categories": categories,
+        "user": user, "items": items, "categories": categories,
         "scope": scope, "category": category, "show_closed": show_closed,
     })
 
@@ -198,8 +199,10 @@ def logout():
 # ================= JSON API (/docs 에서 직접 눌러 볼 수 있음) =================
 def opp_json(o: Opportunity) -> dict:
     return {"id": o.id, "scope": o.scope, "category": o.category, "title": o.title, "host": o.host,
-            "difficulty": o.difficulty, "hours": o.hours, "deadline": o.deadline.isoformat(),
-            "tags": [t.name for t in o.tags], "is_sample": o.is_sample}
+            "difficulty": o.difficulty, "hours": o.hours,
+            "deadline": o.deadline.isoformat() if o.deadline else None,
+            "posted_at": o.posted_at.isoformat() if o.posted_at else None,
+            "url": o.url, "source": o.source, "tags": [t.name for t in o.tags], "is_sample": o.is_sample}
 
 
 @app.get("/api/departments", tags=["api"])

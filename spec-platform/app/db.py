@@ -107,10 +107,12 @@ class Opportunity(Base):
     title: Mapped[str] = mapped_column(String(100))
     host: Mapped[str] = mapped_column(String(50))
     description: Mapped[str] = mapped_column(Text, default="")
-    difficulty: Mapped[int] = mapped_column(Integer)    # 1~5
-    hours: Mapped[int] = mapped_column(Integer)         # 총 소요시간(시간)
-    deadline: Mapped[date] = mapped_column(Date)
-    url: Mapped[str] = mapped_column(String(200), default="")
+    difficulty: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1~5, 학교 공지는 모름
+    hours: Mapped[int | None] = mapped_column(Integer, nullable=True)       # 총 소요시간(시간)
+    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)      # RSS에는 마감일이 없음
+    posted_at: Mapped[date | None] = mapped_column(Date, nullable=True)     # 공지 게시일
+    url: Mapped[str] = mapped_column(String(300), default="")               # 원문 링크 (RSS 중복 판별에도 사용)
+    source: Mapped[str] = mapped_column(String(10), default="sample")       # sample / rss / manual
     is_sample: Mapped[bool] = mapped_column(Boolean, default=True)
     tags: Mapped[list[Tag]] = relationship(secondary=opportunity_tags)
     specs: Mapped[list[Spec]] = relationship(secondary=opportunity_specs)
