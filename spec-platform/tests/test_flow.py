@@ -77,3 +77,26 @@ def test_department_links_to_recommendations():
     assert {"약학과", "반도체물리학부", "빅데이터사이언스학부", "스마트도시학부"} <= names
     assert all(len(d.tags) >= 2 for d in depts)                  # 모든 학과가 관련 분야 태그를 가짐
     db.close()
+
+
+def test_outside_fallback_and_empty_guide():
+    """관심 분야가 안 겹쳐도 대외활동이 보이고(최근 순), 데이터가 아예 없으면 해결 방법을 안내해야 함"""
+    from datetime import date
+    from fastapi.testclient import TestClient
+    from app import rss_import, seed
+    from app.main import app
+    seed.run()
+    client = TestClient(app)
+    r = client.post("/profile", data={"nickname": "외부", "department_id": dept_id("약학과"), "grade": 1, "admission_year": 2026},
+                    follow_redirects=False)
+    client.cookies.set("user_id", r.cookies["user_id"])
+    assert "python -m app.rss_import" in client.get("/me").text  # 대외활동이 0개면 안내
+
+    db = SessionLocal()
+    xml = (f'<rss><channel><item><title>시험용 외부 공고</title><link>/bbs/x/9/artclView.do</link>'
+           f'<pubDate>{date.today()} 09:00:00.0</pubDate><description>분야 키워드 없음</description></item></channel></rss>')
+    rss_import.save_items(db, rss_import.parse_rss(xml, "https://sejong.korea.ac.kr"),
+                          {"host": "세종캠퍼스 외부기관공고", "category": "외부기관공고", "scope": "외부"})
+    db.close()
+    page = client.get("/me").text
+    assert "시험용 외부 공고" in page and "최근 순" in page  # 약학과 관심 분야와 안 겹쳐도 최근 대외활동으로 보임

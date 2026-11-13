@@ -17,12 +17,16 @@
 {% endfor %}
 </div>
 
-<h2>대외활동</h2>
+<h2>대외활동 <small>{{ '최근 순 (관심 분야와 겹치는 글 없음)' if outside_fallback and outside_recs else '분야 일치 순' }}</small></h2>
 <div class="cards">
 {% for r in outside_recs %}
   {% with o = r.opportunity, reasons = r.reasons %}{% include "_card.html" %}{% endwith %}
 {% else %}
-  <p class="empty">관심 분야와 맞는 대외활동이 없습니다.</p>
+  {% if outside_total == 0 %}
+  <p class="empty">아직 대외활동 데이터가 없습니다.<br>PowerShell에서 <code>python -m app.rss_import</code>를 실행하면<br>세종캠퍼스 외부기관공고가 대외활동으로 들어옵니다.</p>
+  {% else %}
+  <p class="empty">보여 줄 대외활동이 없습니다.</p>
+  {% endif %}
 {% endfor %}
 </div>
 

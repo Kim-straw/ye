@@ -81,6 +81,18 @@ def recommend(db: Session, user: User, scope: str | None = None, limit: int = 5)
     return recs[:limit]
 
 
+def latest(db: Session, user: User, scope: str, limit: int = 5) -> list[Recommendation]:
+    """관심 분야가 겹치는 글이 없을 때 대신 보여 줄 '최근 글'.
+    지원 가능한 글(마감 전, 또는 게시 60일 이내)을 먼저, 그것도 없으면 가장 최근에 올라온 글을 보여 줌."""
+    today = date.today()
+    query = select(Opportunity).where(Opportunity.scope == scope)
+    open_items = sorted(db.scalars(query.where(open_clause(today))), key=sort_key)
+    if open_items:
+        return [Recommendation(o, score_opportunity(user, o, today).score, ["최근 공고"]) for o in open_items[:limit]]
+    old = db.scalars(query.order_by(Opportunity.posted_at.is_(None), Opportunity.posted_at.desc()).limit(limit)).all()
+    return [Recommendation(o, 0, ["최근 공고 · 오래된 글이니 원문에서 모집 여부 확인"]) for o in old]
+
+
 @dataclass
 class GapItem:
     spec_name: str

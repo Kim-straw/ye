@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import logic
@@ -134,10 +134,16 @@ async def save_profile(
 
 @app.get("/me", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    outside_recs = logic.recommend(db, user, scope="외부")
+    outside_fallback = not outside_recs  # 관심 분야가 겹치는 대외활동이 없으면 최근 대외활동을 대신 보여 줌
+    if outside_fallback:
+        outside_recs = logic.latest(db, user, scope="외부")
     return templates.TemplateResponse(request, "me.html", {
         "user": user,
         "campus_recs": logic.recommend(db, user, scope="교내"),
-        "outside_recs": logic.recommend(db, user, scope="외부"),
+        "outside_recs": outside_recs,
+        "outside_fallback": outside_fallback,
+        "outside_total": db.scalar(select(func.count(Opportunity.id)).where(Opportunity.scope == "외부")),
     })
 
 
