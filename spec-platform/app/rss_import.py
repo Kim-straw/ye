@@ -22,10 +22,12 @@ from .db import Opportunity, School, SessionLocal, Spec, Tag, init_db
 FEEDS = [
     {"url": "https://nipa.korea.ac.kr/bbs/fieldwork/575/rssList.do?row=50",
      "base": "https://nipa.korea.ac.kr", "host": "세종현장실습지원센터", "category": "현장실습"},
-    # 확인되면 아래 주석을 풀기 (# 지우기)
-    # {"url": "https://nipa.korea.ac.kr/bbs/fieldwork/868/rssList.do?row=50", "base": "https://nipa.korea.ac.kr", "host": "세종현장실습지원센터", "category": "현장실습"},
-    # {"url": "https://innovation.korea.ac.kr/bbs/innovation/189/rssList.do?row=50", "base": "https://innovation.korea.ac.kr", "host": "RISE 사업단", "category": "창업"},
-    # {"url": "https://software.korea.ac.kr/bbs/software/352/rssList.do?row=50", "base": "https://software.korea.ac.kr", "host": "소프트웨어", "category": "특강"},
+    # 아래 4곳은 검색 결과의 글 주소에서 게시판 번호만 따온 것이라 열리는지 아직 확인하지 못함.
+    # 안 열리면(로그인 필요 등) 실행할 때 [실패]로 알려 주고 나머지는 계속 진행함. 계속 실패하면 이 줄을 지우면 됨.
+    {"url": "https://nipa.korea.ac.kr/bbs/fieldwork/868/rssList.do?row=50", "base": "https://nipa.korea.ac.kr", "host": "세종현장실습지원센터", "category": "현장실습"},
+    {"url": "https://innovation.korea.ac.kr/bbs/innovation/189/rssList.do?row=50", "base": "https://innovation.korea.ac.kr", "host": "RISE 사업단", "category": "창업"},
+    {"url": "https://software.korea.ac.kr/bbs/software/352/rssList.do?row=50", "base": "https://software.korea.ac.kr", "host": "소프트웨어 관련 사이트", "category": "특강"},
+    {"url": "https://career.korea.ac.kr/bbs/cdc/526/rssList.do?row=50", "base": "https://career.korea.ac.kr", "host": "career.korea.ac.kr", "category": "취업"},
 ]
 
 # 이 단어가 제목에 있으면 '프로그램 모집'이 아닌 글로 보고 제외
@@ -80,6 +82,8 @@ def clean(text: str | None) -> str:
 
 def parse_rss(xml_text: str, base: str) -> list[dict]:
     """RSS 글자 덩어리 -> [{title, url, posted_at, description}, ...]"""
+    if "<rss" not in xml_text[:2000] and "<channel" not in xml_text[:2000]:
+        raise ValueError("RSS가 아닌 응답입니다 (로그인이 필요하거나 게시판 주소가 다름)")
     root = ET.fromstring(xml_text)
     items = []
     for it in root.iter("item"):
@@ -128,13 +132,15 @@ def run():
     init_db()
     db = SessionLocal()
     for feed in FEEDS:
+        board = feed["url"].split("/bbs/")[1].split("/rssList")[0]  # 예: fieldwork/575 (게시판 구분용)
+        label = f"{feed['host']} ({board})"
         try:
             items = parse_rss(fetch(feed["url"]), feed["base"])
         except Exception as e:  # 한 게시판이 실패해도 나머지는 계속
-            print(f"[실패] {feed['host']}: {e}")
+            print(f"[실패] {label}: {e}")
             continue
         added = save_items(db, items, feed)
-        print(f"[완료] {feed['host']}: 글 {len(items)}개 중 새 프로그램 {added}개 추가")
+        print(f"[완료] {label}: 글 {len(items)}개 중 새 프로그램 {added}개 추가")
     db.close()
 
 
