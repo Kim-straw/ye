@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.db import Opportunity, SessionLocal
+from tests.helpers import dept_id, tag_id
 from tests.test_rss import fresh_db_with_rss
 
 
@@ -16,10 +17,10 @@ def setup_module():
 def client_with_profile():
     from app.main import app
     client = TestClient(app)
-    # 컴퓨터융합소프트웨어학과(id=1), 관심: 경영(id=5), 스펙: SQLD(id=2) + TOEIC(id=6) 650점
+    # 컴퓨터소프트웨어학과, 관심: 경영, 스펙: SQLD(id=2) + TOEIC(id=6) 650점
     r = client.post("/profile", data={
-        "nickname": "테스트", "department_id": 1, "grade": 3, "admission_year": 2024, "gpa": "3.5",
-        "tag_ids": ["5"], "spec_ids": ["2", "6"], "score_6": "650",
+        "nickname": "테스트", "department_id": dept_id("컴퓨터소프트웨어학과"), "grade": 3, "admission_year": 2024, "gpa": "3.5",
+        "tag_ids": [str(tag_id("경영"))], "spec_ids": ["2", "6"], "score_6": "650",
     }, follow_redirects=False)
     assert r.status_code == 303 and "user_id" in r.cookies
     client.cookies.set("user_id", r.cookies["user_id"])
@@ -64,3 +65,15 @@ def test_full_flow():
     r = client.post(f"/opportunities/{rid}/reviews", data={"rating": 4, "content": "테스트 후기입니다"}, follow_redirects=False)
     assert r.status_code == 303
     assert "테스트 후기입니다" in client.get(f"/opportunities/{rid}").text
+
+
+def test_department_links_to_recommendations():
+    """학과의 기본 분야 태그가 실제 공지와 이어져 추천에 나오는지 (프로필 -> 학과 -> 추천)"""
+    from app.db import Department
+    db = SessionLocal()
+    depts = db.scalars(select(Department)).all()
+    names = {d.name for d in depts}
+    assert len(depts) == len(names) >= 30                       # 이름 중복 없이 세종캠퍼스 학과가 모두 들어 있음
+    assert {"약학과", "반도체물리학부", "빅데이터사이언스학부", "스마트도시학부"} <= names
+    assert all(len(d.tags) >= 2 for d in depts)                  # 모든 학과가 관련 분야 태그를 가짐
+    db.close()

@@ -4,7 +4,7 @@
 <div class="card-top">
   <span class="badge {{ 'campus' if o.scope == '교내' else 'outside' }}">{{ o.scope }}</span>
   <span class="badge">{{ o.category }}</span>
-  {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% endif %}
+  {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% elif o.source == 'manual' %}<span class="badge real">직접 등록</span>{% endif %}
 </div>
 <h1>{{ o.title }}</h1>
 <p class="muted">{{ o.host }}{% if o.posted_at %} · {{ o.posted_at }} 게시{% endif %}</p>

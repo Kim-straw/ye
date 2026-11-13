@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app import job_import, seed
 from app.db import Job, SessionLocal
 from app.main import app
+from tests.helpers import dept_id
 
 END = (date.today() + timedelta(days=9)).strftime("%Y%m%d")
 FIXTURE = {"result": [
@@ -60,7 +61,7 @@ def test_gap_with_real_job():
     job_import.save_jobs(db, records)
     db.close()
     client = TestClient(app)
-    r = client.post("/profile", data={"nickname": "잡", "department_id": 1, "grade": 3, "admission_year": 2024,
+    r = client.post("/profile", data={"nickname": "잡", "department_id": dept_id("컴퓨터소프트웨어학과"), "grade": 3, "admission_year": 2024,
                                       "spec_ids": ["6"], "score_6": "650"}, follow_redirects=False)  # TOEIC 650
     client.cookies.set("user_id", r.cookies["user_id"])
 

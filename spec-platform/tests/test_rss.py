@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app import rss_import, seed
 from app.db import Opportunity, SessionLocal
 from app.main import app
+from tests.helpers import dept_id
 
 FEED = rss_import.NIPA_575
 RECENT = (date.today() - timedelta(days=10)).isoformat()
@@ -62,8 +63,8 @@ def test_save_filters_and_no_duplicates():
 def test_rss_items_in_app():
     fresh_db_with_rss()[0].close()
     client = TestClient(app)
-    # 글로벌경영전공(id=4, 기본 태그: 경영) -> 최근 현장실습 공지가 추천되어야 함
-    r = client.post("/profile", data={"nickname": "rss", "department_id": 4, "grade": 2, "admission_year": 2025},
+    # 융합경영학부 글로벌경영전공(기본 태그: 경영) -> 최근 현장실습 공지가 추천되어야 함
+    r = client.post("/profile", data={"nickname": "rss", "department_id": dept_id("융합경영학부 글로벌경영전공"), "grade": 2, "admission_year": 2025},
                     follow_redirects=False)
     client.cookies.set("user_id", r.cookies["user_id"])
     recs = client.get("/api/recommendations", params={"scope": "교내"}).json()

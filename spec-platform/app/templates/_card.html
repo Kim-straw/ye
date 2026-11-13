@@ -3,7 +3,7 @@
   <div class="card-top">
     <span class="badge {{ 'campus' if o.scope == '교내' else 'outside' }}">{{ o.scope }}</span>
     <span class="badge">{{ o.category }}</span>
-    {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% endif %}
+    {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% elif o.source == 'manual' %}<span class="badge real">직접 등록</span>{% endif %}
     {% if o.deadline %}
       {% set left = (o.deadline - today()).days %}
       <span class="dday {{ 'urgent' if 0 <= left <= 7 }}">{{ '마감' if left < 0 else ('D-' ~ left) }}</span>
