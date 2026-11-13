@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app import job_import, seed
-from app.db import Job, SessionLocal
+from app.db import Job, Opportunity, SessionLocal
 from app.main import app
 from tests.helpers import dept_id
 
@@ -82,4 +82,12 @@ def test_run_from_file(tmp_path, capsys):
     path = tmp_path / "x.json"
     path.write_text(json.dumps(FIXTURE, ensure_ascii=False), encoding="utf-8")
     job_import.run(file=str(path))
-    assert "새 직무 2개" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "대외활동 3개" in out and "직무 요건 2개" in out
+    db = SessionLocal()
+    rows = db.scalars(select(Opportunity).where(Opportunity.source == "api")).all()
+    assert len(rows) == 3 and all(r.scope == "외부" and r.deadline for r in rows)
+    assert {r.category for r in rows} == {"공공기관 인턴", "공공기관 채용"}
+    db.close()
+    job_import.run(file=str(path))
+    assert "대외활동 0개" in capsys.readouterr().out  # 두 번 실행해도 중복 없음

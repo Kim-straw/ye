@@ -26,7 +26,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from .db import Job, JobRequirement, SessionLocal, Spec, init_db
+from .db import Job, JobRequirement, Opportunity, SessionLocal, Spec, Tag, init_db
 
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
@@ -40,6 +40,9 @@ FIELD = {
     "pref": ["prefCondCn", "prefCn", "prefCond"],  # 우대조건
     "url": ["srcUrl", "url", "pbancUrl"],
     "end": ["pbancEndYmd", "endYmd", "rceptEndYmd"],
+    "start": ["pbancBgngYmd", "bgngYmd", "rceptBgngYmd"],
+    "hire": ["hireTypeNmLst", "hireTypeLst"],        # 고용형태 (정규직, 체험형인턴 등)
+    "se": ["recrutSeNm", "recrutSe"],                # 채용구분 (신입, 경력 등)
 }
 
 # 글 속 단어 -> 우리 스펙 이름. 앞의 것이 먼저 검사됨.
@@ -183,6 +186,36 @@ def save_jobs(db, records: list[dict]) -> tuple[int, int, int]:
     return added, dup, skipped
 
 
+def save_opportunities(db, records: list[dict]) -> int:
+    """학생이 지원할 만한 공고(인턴, 신입)를 '대외활동'으로 저장. 경력직만 뽑는 공고는 뺌."""
+    from .rss_import import SPEC_KEYWORDS, TAG_KEYWORDS, guess
+    tags = {t.name: t for t in db.scalars(select(Tag))}
+    specs = {s.name: s for s in db.scalars(select(Spec))}
+    known = {(t, h) for t, h in db.execute(select(Opportunity.title, Opportunity.host))}
+    added = 0
+    for rec in records:
+        title, org = pick(rec, "title"), pick(rec, "org") or "공공기관"
+        hire, se = pick(rec, "hire"), pick(rec, "se")
+        if not title or (title, org) in known:
+            continue
+        intern = "인턴" in title or "인턴" in hire
+        if not intern and "경력" in se and "신입" not in se:
+            continue  # 경력직 전용 공고는 학생 대상이 아님
+        text = " ".join([title, pick(rec, "ncs"), pick(rec, "qual"), pick(rec, "pref")])
+        db.add(Opportunity(
+            school_id=None, scope="외부", category="공공기관 인턴" if intern else "공공기관 채용",
+            title=title[:100], host=org[:50], description=" / ".join(x for x in [hire, se, pick(rec, "ncs")] if x)[:500],
+            difficulty=None, hours=None, deadline=parse_ymd(pick(rec, "end")), posted_at=parse_ymd(pick(rec, "start")),
+            url=pick(rec, "url")[:300], source="api", is_sample=False,
+            tags=[tags[n] for n in guess(text, TAG_KEYWORDS) if n in tags],
+            specs=[specs[n] for n in guess(text, SPEC_KEYWORDS) if n in specs],
+        ))
+        known.add((title, org))
+        added += 1
+    db.commit()
+    return added
+
+
 # ---------- 실행 ----------
 def run(max_pages: int = 3, rows: int = 100, file: str | None = None) -> None:
     init_db()
@@ -204,8 +237,10 @@ def run(max_pages: int = 3, rows: int = 100, file: str | None = None) -> None:
                 break
     db = SessionLocal()
     added, dup, skipped = save_jobs(db, records)
+    activities = save_opportunities(db, records)
     db.close()
-    print(f"[완료] 공고 {len(records)}개 중 새 직무 {added}개 저장 (이미 있음 {dup}, 스펙 단어 없어 제외 {skipped})")
+    print(f"[완료] 공고 {len(records)}개 중 대외활동 {activities}개 추가 (공공기관 인턴·신입 채용)")
+    print(f"       직무 요건 {added}개 저장 (이미 있음 {dup}, 스펙 단어 없어 제외 {skipped})")
 
 
 def dump() -> None:
