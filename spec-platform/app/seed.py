@@ -84,7 +84,7 @@ def run():
 
     # 실제 학교 공지 스냅샷을 교내 프로그램으로 저장 (rss_import와 같은 규칙: 수상작 글 제외 등)
     db.commit()
-    feed = rss_import.FEEDS[0]
+    feed = rss_import.NIPA_575
     added = rss_import.save_items(db, rss_import.parse_rss(VERIFIED_RSS_SNAPSHOT, feed["base"]), feed)
 
     db.commit()

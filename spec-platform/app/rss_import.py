@@ -8,6 +8,7 @@ RSS = 게시판 앞의 무료 전단지 꽂이. 로그인 없이 열리는 주�
 - 태그는 제목/본문 키워드로 추정
 - 수상작 발표 같은 '프로그램이 아닌 글'은 제외 키워드로 거름
 """
+import html
 import re
 import urllib.request
 from datetime import date, datetime
@@ -18,12 +19,22 @@ from sqlalchemy import select
 
 from .db import Opportunity, School, SessionLocal, Spec, Tag, init_db
 
-# 로그인 없이 열리는 것을 직접 확인한 게시판만 넣기
+# seed.py의 스냅샷과 테스트가 이 게시판을 기준으로 씀
+NIPA_575 = {"url": "https://nipa.korea.ac.kr/bbs/fieldwork/575/rssList.do?row=50",
+            "base": "https://nipa.korea.ac.kr", "host": "세종현장실습지원센터", "category": "현장실습"}
+
+# 로그인 없이 열리는 게시판만 넣기. 안 열리면 실행할 때 [실패]로 알려 주고 나머지는 계속 진행함.
+# scope를 적지 않으면 "교내". 외부기관 공고처럼 학교 밖 활동이면 "외부"(= 대외활동 목록).
 FEEDS = [
-    {"url": "https://nipa.korea.ac.kr/bbs/fieldwork/575/rssList.do?row=50",
-     "base": "https://nipa.korea.ac.kr", "host": "세종현장실습지원센터", "category": "현장실습"},
-    # 아래 4곳은 검색 결과의 글 주소에서 게시판 번호만 따온 것이라 열리는지 아직 확인하지 못함.
-    # 안 열리면(로그인 필요 등) 실행할 때 [실패]로 알려 주고 나머지는 계속 진행함. 계속 실패하면 이 줄을 지우면 됨.
+    # 세종캠퍼스 홈페이지 > KUS 소식 (657은 2026-11-13 브라우저에서 열림 확인, 660·663은 미확인)
+    {"url": "https://sejong.korea.ac.kr/bbs/koreaSejong/657/rssList.do?row=50",
+     "base": "https://sejong.korea.ac.kr", "host": "세종캠퍼스 교내행사공지", "category": "교내행사"},
+    {"url": "https://sejong.korea.ac.kr/bbs/koreaSejong/660/rssList.do?row=50",
+     "base": "https://sejong.korea.ac.kr", "host": "세종캠퍼스 학생진로취업공지", "category": "진로취업"},
+    {"url": "https://sejong.korea.ac.kr/bbs/koreaSejong/663/rssList.do?row=50",
+     "base": "https://sejong.korea.ac.kr", "host": "세종캠퍼스 외부기관공고", "category": "외부기관공고", "scope": "외부"},
+    # 하위 사이트 (2026-11-13 내 PC에서 수집 성공 확인)
+    NIPA_575,
     {"url": "https://nipa.korea.ac.kr/bbs/fieldwork/868/rssList.do?row=50", "base": "https://nipa.korea.ac.kr", "host": "세종현장실습지원센터", "category": "현장실습"},
     {"url": "https://innovation.korea.ac.kr/bbs/innovation/189/rssList.do?row=50", "base": "https://innovation.korea.ac.kr", "host": "RISE 사업단", "category": "창업"},
     {"url": "https://software.korea.ac.kr/bbs/software/352/rssList.do?row=50", "base": "https://software.korea.ac.kr", "host": "소프트웨어 관련 사이트", "category": "특강"},
@@ -77,7 +88,8 @@ def parse_date(text: str) -> date | None:
 
 
 def clean(text: str | None) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text or "")).strip()
+    text = html.unescape(html.unescape(text or ""))  # 학교 RSS는 &amp;#9312; 처럼 두 번 감싼 기호가 있음 -> ①
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
 
 
 def parse_rss(xml_text: str, base: str) -> list[dict]:
@@ -114,8 +126,9 @@ def save_items(db, items: list[dict], feed: dict) -> int:
         if item["url"] in known or not is_program(item["title"]):
             continue  # 이미 넣은 글이거나 프로그램이 아닌 글
         text = item["title"] + " " + item["description"]
+        scope = feed.get("scope", "교내")
         db.add(Opportunity(
-            school_id=school.id if school else None, scope="교내", category=feed["category"],
+            school_id=school.id if (school and scope == "교내") else None, scope=scope, category=feed["category"],
             title=item["title"], host=feed["host"], description=item["description"],
             difficulty=None, hours=None, deadline=None, posted_at=item["posted_at"],
             url=item["url"], source="rss", is_sample=False,

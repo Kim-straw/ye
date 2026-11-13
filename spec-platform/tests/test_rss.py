@@ -8,7 +8,7 @@ from app import rss_import, seed
 from app.db import Opportunity, SessionLocal
 from app.main import app
 
-FEED = rss_import.FEEDS[0]
+FEED = rss_import.NIPA_575
 RECENT = (date.today() - timedelta(days=10)).isoformat()
 
 # nipa.korea.ac.kr/bbs/fieldwork/575/rssList.do 화면과 같은 구조 (+ 최근 모집 글 1개)
@@ -88,3 +88,21 @@ def test_run_survives_network_error(monkeypatch, capsys):
     monkeypatch.setattr(rss_import, "fetch", lambda url: (_ for _ in ()).throw(OSError("연결 실패")))
     rss_import.run()
     assert "[실패]" in capsys.readouterr().out
+
+
+def test_external_feed_goes_to_outside_activities():
+    """외부기관공고 게시판(scope=외부)은 교내가 아니라 대외활동으로 저장되고, 학교 RSS의 이중 기호(&amp;#9312;)는 ①로 읽혀야 함"""
+    seed.run()
+    xml = ('<rss version="2.0"><channel><item><title><![CDATA[ 2027 대학생 서포터즈 모집 ]]></title>'
+           '<link>/bbs/koreaSejong/663/1/artclView.do</link><pubDate>2026-11-10 09:00:00.0</pubDate>'
+           '<description><![CDATA[ &amp;#9312; 실내 &amp;#9313; 야외 ]]></description></item></channel></rss>')
+    feed = {"url": "https://sejong.korea.ac.kr/bbs/koreaSejong/663/rssList.do?row=50", "base": "https://sejong.korea.ac.kr",
+            "host": "세종캠퍼스 외부기관공고", "category": "외부기관공고", "scope": "외부"}
+    items = rss_import.parse_rss(xml, feed["base"])
+    assert items[0]["description"] == "① 실내 ② 야외"
+    db = SessionLocal()
+    assert rss_import.save_items(db, items, feed) == 1
+    row = db.scalars(select(Opportunity).where(Opportunity.url == items[0]["url"])).one()
+    assert row.scope == "외부" and row.school_id is None
+    assert [FEED["host"]] == [rss_import.FEEDS[3]["host"]]  # nipa 게시판이 목록에 그대로 있음
+    db.close()
