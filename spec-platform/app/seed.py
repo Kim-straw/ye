@@ -1,16 +1,14 @@
-"""샘플(가짜) 데이터 넣기.
+"""기본 데이터 넣기.
 
-- 모든 데이터는 is_sample=True 로 화면에 '샘플' 표시가 붙습니다.
-- 학과·프로그램 '이름'은 현실에 맞추려 했지만 확인되지 않았습니다. 내용(난이도, 마감일, 요건 등)은 전부 가짜입니다.
+- 활동(교내 프로그램·대외활동): 가상 데이터 없음. 직접 확인한 실제 학교 RSS 글만 넣습니다.
+- 학과명: 확인되지 않았습니다. 실제 학과명으로 고쳐야 합니다.
+- 직무 요건(JOBS): 아직 샘플입니다(화면에 '샘플' 표시). 잡알리오 API 연결 후 실제 공고로 바꿀 예정.
 - 실제 학생 개인정보는 넣지 않습니다.
-실행: python -m app.seed        (샘플 활동 포함)
-      python -m app.seed real   (샘플 활동·후기 없이: 학과·태그·스펙·직무만)
+실행: python -m app.seed   (spec-platform 폴더에서)
 """
-import sys
-from datetime import date, timedelta
 
-from .db import (Base, Department, Job, JobRequirement, Opportunity, Review, School, SessionLocal, Spec, Tag,
-                 engine)
+from . import rss_import
+from .db import Base, Department, Job, JobRequirement, School, SessionLocal, Spec, Tag, engine
 
 TAGS = ["개발", "데이터", "AI", "마케팅", "경영", "글쓰기", "디자인", "창업", "공공", "봉사", "어학", "상담", "리더십", "영상"]
 
@@ -35,29 +33,6 @@ SPECS = [
     ("서포터즈·기자단 경험", "경험", False), ("봉사활동 경험", "경험", False), ("창업 경험", "경험", False),
 ]
 
-# (scope, category, 제목, 주관, 설명, 난이도, 시간, 마감까지 남은 일수, 태그, 얻는 스펙)
-OPPORTUNITIES = [
-    ("교내", "비교과", "체인지메이커스 프로젝트", "사회공헌센터(가상)", "지역 문제를 팀 프로젝트로 해결하는 비교과 프로그램.", 3, 40, 10, ["리더십", "봉사", "창업"], ["봉사활동 경험", "개발 프로젝트 경험"]),
-    ("교내", "비교과", "컬트(CULT) 프로그램", "교양교육원(가상)", "문화·교양 체험형 비교과 프로그램.", 1, 12, 20, ["글쓰기", "디자인"], []),
-    ("교내", "서포터즈", "취창업센터 서포터즈", "취창업지원센터(가상)", "센터 행사 홍보 콘텐츠 제작, SNS 운영.", 2, 30, 7, ["마케팅", "영상", "글쓰기"], ["서포터즈·기자단 경험"]),
-    ("교내", "서포터즈", "학생상담센터 서포터즈", "학생상담센터(가상)", "또래 상담 캠페인 기획 및 운영.", 2, 24, 15, ["상담", "봉사", "리더십"], ["봉사활동 경험", "서포터즈·기자단 경험"]),
-    ("교내", "특강", "SQLD 자격증 대비 특강", "SW중심대학사업단(가상)", "8주 SQLD 대비반, 모의고사 포함.", 3, 24, 5, ["데이터", "개발"], ["SQLD"]),
-    ("교내", "특강", "정보처리기사 실기 집중반", "SW중심대학사업단(가상)", "실기 기출 풀이 중심.", 4, 32, 12, ["개발"], ["정보처리기사"]),
-    ("교내", "특강", "토익 단기 완성반", "국제교류처(가상)", "6주 토익 RC/LC 집중반.", 2, 36, 9, ["어학"], ["TOEIC"]),
-    ("교내", "비교과", "AI 해커톤 캠프", "SW중심대학사업단(가상)", "1박 2일 교내 해커톤.", 4, 24, 18, ["AI", "개발", "데이터"], ["개발 프로젝트 경험", "공모전 수상"]),
-    ("교내", "비교과", "창업 아이디어 경진대회", "창업지원단(가상)", "아이디어 기획서 + 발표 심사.", 3, 20, 25, ["창업", "경영", "마케팅"], ["공모전 수상", "창업 경험"]),
-    ("교내", "현장실습", "지역 공공기관 현장실습", "현장실습지원센터(가상)", "방학 4주 공공기관 실습.", 3, 160, 30, ["공공", "경영"], ["인턴 경험"]),
-    ("교내", "특강", "데이터 분석 입문(ADsP 대비)", "데이터과학연구소(가상)", "파이썬 기초와 ADsP 이론.", 2, 20, 3, ["데이터", "AI"], ["ADsP"]),
-    ("교내", "특강", "한국사 자격증 특강", "교양교육원(가상)", "공기업 준비생을 위한 한국사 1급 대비.", 2, 16, 14, ["공공"], ["한국사능력검정 1급"]),
-    ("외부", "서포터즈", "IT 기업 대학생 서포터즈 (가상)", "가상테크", "신규 서비스 체험 후 리뷰 콘텐츠 제작.", 2, 40, 11, ["마케팅", "개발", "영상"], ["서포터즈·기자단 경험"]),
-    ("외부", "기자단", "공공기관 대학생 기자단 (가상)", "가상공단", "정책 홍보 기사 월 2회 작성.", 2, 48, 16, ["공공", "글쓰기"], ["서포터즈·기자단 경험"]),
-    ("외부", "공모전", "공공데이터 활용 공모전 (가상)", "가상부처", "공공데이터로 서비스 기획·개발.", 4, 60, 22, ["데이터", "개발", "공공"], ["공모전 수상", "개발 프로젝트 경험"]),
-    ("외부", "공모전", "대학생 마케팅 공모전 (가상)", "가상식품", "신제품 마케팅 전략 제안.", 3, 30, 8, ["마케팅", "경영"], ["공모전 수상"]),
-    ("외부", "인턴", "스타트업 백엔드 인턴 (가상)", "가상스타트업", "방학 8주 백엔드 인턴.", 4, 320, 19, ["개발", "데이터"], ["인턴 경험", "개발 프로젝트 경험"]),
-    ("외부", "봉사", "디지털 교육 봉사단 (가상)", "가상재단", "어르신 대상 스마트폰 교육 봉사.", 1, 30, 13, ["봉사", "공공"], ["봉사활동 경험"]),
-    ("외부", "대외활동", "영상 크리에이터 아카데미 (가상)", "가상미디어", "브랜드 영상 기획·촬영 실습.", 3, 40, -3, ["영상", "디자인", "마케팅"], ["서포터즈·기자단 경험"]),  # 마감 지난 예시
-]
-
 # (직무, 분야, 설명, [(스펙, 필수/우대, 최소값)])
 JOBS = [
     ("백엔드 개발자", "사기업", "서버·API·DB를 설계하고 개발합니다.",
@@ -72,19 +47,25 @@ JOBS = [
      [("TOEIC", "필수", 700), ("한국사능력검정 1급", "우대", None), ("컴퓨터활용능력 1급", "우대", None), ("봉사활동 경험", "우대", None)]),
 ]
 
-REVIEWS = [
-    ("체인지메이커스 프로젝트", 5, "팀원들과 실제 지역 문제를 다뤄서 자소서 소재로 좋았어요. (샘플 후기)"),
-    ("체인지메이커스 프로젝트", 4, "생각보다 회의가 많아요. 시간 여유 있을 때 추천. (샘플 후기)"),
-    ("SQLD 자격증 대비 특강", 5, "모의고사가 실제 시험과 비슷했습니다. (샘플 후기)"),
-    ("취창업센터 서포터즈", 3, "콘텐츠 제작 부담이 조금 있어요. (샘플 후기)"),
-]
+# 2026-11-13 로그인 없이 열리는 것을 확인한 실제 RSS(nipa.korea.ac.kr/bbs/fieldwork/575)의 글 3개.
+# 인터넷 없이도 실제 데이터로 시작하기 위한 스냅샷. 최신 글은 python -m app.rss_import 로 가져옴.
+VERIFIED_RSS_SNAPSHOT = """<rss version="2.0"><channel><title>RSS 게시판 2.0</title>
+<item><title><![CDATA[ 제4회 현장실습학기제 우수 수기 공모전 수상작 및 인터뷰 ]]></title>
+<link>/bbs/fieldwork/575/267131/artclView.do?layout=unknown</link><pubDate>2026-02-27 17:13:47.0</pubDate>
+<description><![CDATA[ 세종현장실습지원센터 제4회 현장실습학기제 우수 수기 공모전 수상작 안내 ]]></description></item>
+<item><title><![CDATA[ 제4회 현장실습학기제 우수사례 수기·영상 공모전 개최 ]]></title>
+<link>/bbs/fieldwork/575/263629/artclView.do?layout=unknown</link><pubDate>2025-10-22 09:19:29.0</pubDate>
+<description><![CDATA[ 세종현장실습온라인시스템 주소: http://coop.korea.ac.kr 세종현장실습온라인시스템 바로가기 ]]></description></item>
+<item><title><![CDATA[ 제3회 현장실습학기제 우수 수기 공모전 수상작 ]]></title>
+<link>/bbs/fieldwork/575/262791/artclView.do?layout=unknown</link><pubDate>2025-09-19 13:27:16.0</pubDate>
+<description><![CDATA[ ]]></description></item>
+</channel></rss>"""
 
 
-def run(include_sample_activities: bool = True):
-    Base.metadata.drop_all(engine)  # 매번 새로 만듦 (샘플 데이터 전용이라 괜찮음)
+def run():
+    Base.metadata.drop_all(engine)  # 매번 새로 만듦 (사용자 데이터가 생기면 쓰면 안 됨)
     Base.metadata.create_all(engine)
     db = SessionLocal()
-    today = date.today()
 
     school = School(name="고려대학교", campus="세종캠퍼스")
     db.add(school)
@@ -96,31 +77,20 @@ def run(include_sample_activities: bool = True):
         db.add(Department(school=school, college=college, name=name, tags=[tags[t] for t in tnames]))
 
     db.flush()  # 창고에 임시로 넣어 school.id 번호를 먼저 발급받기
-
-    opps = {}
-    for scope, cat, title, host, desc, diff, hours, days, tnames, snames in (OPPORTUNITIES if include_sample_activities else []):
-        o = Opportunity(
-            school_id=school.id if scope == "교내" else None, scope=scope, category=cat, title=title,
-            host=host, description=desc, difficulty=diff, hours=hours,
-            deadline=today + timedelta(days=days), url="",
-            tags=[tags[t] for t in tnames], specs=[specs[s] for s in snames],
-        )
-        opps[title] = o
-        db.add(o)
-    db.flush()
-
     for name, sector, desc, reqs in JOBS:
         db.add(Job(name=name, sector=sector, description=desc, requirements=[
             JobRequirement(spec=specs[s], level=lv, min_value=mv, source_url="") for s, lv, mv in reqs
         ]))
 
-    for title, rating, content in (REVIEWS if include_sample_activities else []):
-        db.add(Review(opportunity_id=opps[title].id, rating=rating, content=content))
+    # 실제 학교 공지 스냅샷을 교내 프로그램으로 저장 (rss_import와 같은 규칙: 수상작 글 제외 등)
+    db.commit()
+    feed = rss_import.FEEDS[0]
+    added = rss_import.save_items(db, rss_import.parse_rss(VERIFIED_RSS_SNAPSHOT, feed["base"]), feed)
 
     db.commit()
     db.close()
-    print("기본 데이터 입력 완료" + ("" if include_sample_activities else " (샘플 활동 제외)"))
+    print(f"기본 데이터 입력 완료 (실제 학교 공지 {added}개)")
 
 
 if __name__ == "__main__":
-    run(include_sample_activities="real" not in sys.argv[1:])
+    run()

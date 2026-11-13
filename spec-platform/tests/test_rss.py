@@ -49,7 +49,7 @@ def test_parse():
 
 def test_save_filters_and_no_duplicates():
     db, items, added = fresh_db_with_rss()
-    assert added == 2  # 수상작 글은 제외
+    assert added == 1  # 수상작 글 제외 + '공모전 개최' 글은 seed 스냅샷에 이미 있어서 중복 제외
     assert rss_import.save_items(db, items, FEED) == 0  # 두 번 넣어도 중복 없음
     rows = db.scalars(select(Opportunity).where(Opportunity.source == "rss")).all()
     recent = next(o for o in rows if "모집" in o.title)

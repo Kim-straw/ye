@@ -4,7 +4,7 @@
 프로필 입력 → 교내 프로그램·대외활동 추천 → 직무별 스펙 갭 분석까지 이어집니다.
 폰에 앱처럼 설치할 수 있는 웹앱(PWA)입니다.
 
-> 모든 프로그램·직무·후기 데이터는 시연용 **샘플(가짜)** 입니다. 학과명과 프로그램명은 확인되지 않았습니다.
+> 활동은 학교 게시판 RSS의 **실제 공지만** 넣습니다(가상 활동 없음). 직무 요건은 아직 샘플이고, 학과명은 확인되지 않았습니다.
 
 ## 실행 방법 (Windows, VS Code 터미널 기준)
 
@@ -13,12 +13,11 @@ cd spec-platform
 python -m venv .venv
 .venv\Scripts\activate          # Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python -m app.seed real         # 학과·태그·스펙·직무 기본값 (샘플 활동 없이)
+python -m app.seed              # 기본값 + 확인된 실제 학교 공지 (가상 활동 없음)
 python -m app.rss_import        # 학교 게시판 RSS에서 실제 공지 가져오기 (인터넷 필요)
 uvicorn app.main:app --reload   # 서버 켜기
 ```
 
-- 샘플 활동까지 보고 싶으면 `python -m app.seed` (real 없이).
 - `seed`는 DB를 통째로 다시 만듭니다. 그래서 순서는 항상 **seed → rss_import** 입니다.
 - 수집할 게시판은 `app/rss_import.py`의 `FEEDS` 목록에서 관리합니다. **로그인 없이 열리는 것을 확인한 RSS 주소만** 넣습니다.
 - RSS에는 마감일이 없어서, 마감일 없는 학교 공지는 **게시 후 60일까지만** 목록과 추천에 나옵니다 (`logic.py`의 `FRESH_DAYS`).

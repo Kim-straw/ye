@@ -112,8 +112,8 @@ class Opportunity(Base):
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)      # RSS에는 마감일이 없음
     posted_at: Mapped[date | None] = mapped_column(Date, nullable=True)     # 공지 게시일
     url: Mapped[str] = mapped_column(String(300), default="")               # 원문 링크 (RSS 중복 판별에도 사용)
-    source: Mapped[str] = mapped_column(String(10), default="sample")       # sample / rss / manual
-    is_sample: Mapped[bool] = mapped_column(Boolean, default=True)
+    source: Mapped[str] = mapped_column(String(10), default="rss")          # rss / manual (가상 데이터는 넣지 않음)
+    is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
     tags: Mapped[list[Tag]] = relationship(secondary=opportunity_tags)
     specs: Mapped[list[Spec]] = relationship(secondary=opportunity_specs)
     reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan", order_by="Review.id.desc()")
