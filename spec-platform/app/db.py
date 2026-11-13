@@ -2,13 +2,15 @@
 
 클래스 하나 = 테이블(엑셀 시트) 하나, 클래스 속성 하나 = 칸(열) 하나입니다.
 """
+import os
 from datetime import date
 from pathlib import Path
 
 from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table, Text, Boolean, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-DB_PATH = Path(__file__).resolve().parent.parent / "app.db"
+# 환경변수 SPEC_DB가 있으면 그 파일을 씀 (테스트가 실제 DB를 지우지 않도록 따로 쓰기 위함)
+DB_PATH = Path(os.environ.get("SPEC_DB") or Path(__file__).resolve().parent.parent / "app.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
