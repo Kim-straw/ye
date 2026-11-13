@@ -70,15 +70,19 @@ def service_worker():
 
 # ================= 화면 (HTML) =================
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, user: User | None = Depends(current_user)):
-    return templates.TemplateResponse(request, "home.html", {"user": user})
+def home(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    # 홈 화면용: 실제로 가져온 학교 공지·직접 등록 중 최근 것 3개 (게시일이 없는 글은 뒤로)
+    recent = db.scalars(select(Opportunity).where(Opportunity.is_sample.is_(False))
+                        .order_by(Opportunity.posted_at.is_(None), Opportunity.posted_at.desc(), Opportunity.id.desc())
+                        .limit(3)).all()
+    return templates.TemplateResponse(request, "home.html", {"user": user, "recent": recent})
 
 
 @app.get("/profile/new", response_class=HTMLResponse)
 def profile_form(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
     return templates.TemplateResponse(request, "profile.html", {
         "user": user,
-        "departments": db.scalars(select(Department).order_by(Department.college, Department.name)).all(),
+        "departments": db.scalars(select(Department).order_by(Department.id)).all(),
         "tags": db.scalars(select(Tag)).all(),
         "specs": db.scalars(select(Spec).order_by(Spec.kind, Spec.id)).all(),
         "owned": {us.spec_id: us.value for us in user.specs} if user else {},

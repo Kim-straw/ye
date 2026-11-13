@@ -3,23 +3,33 @@
 {% block content %}
 <h1>전체 활동</h1>
 
+{# 구분(전체/교내/대외활동)은 링크로, 다른 조건은 유지 #}
+{% set keep = ('&category=' ~ category if category else '') ~ ('&show_closed=true' if show_closed else '') %}
+<nav class="seg" aria-label="구분">
+  <a href="/opportunities?scope={{ keep }}" class="{{ 'on' if not scope }}" {{ 'aria-current=page' if not scope }}>전체</a>
+  <a href="/opportunities?scope=교내{{ keep }}" class="{{ 'on' if scope == '교내' }}" {{ 'aria-current=page' if scope == '교내' }}>교내</a>
+  <a href="/opportunities?scope=외부{{ keep }}" class="{{ 'on' if scope == '외부' }}" {{ 'aria-current=page' if scope == '외부' }}>대외활동</a>
+</nav>
+
 <form class="filters" method="get">
-  <select name="scope" onchange="this.form.submit()">
-    <option value="">교내 + 외부</option>
-    <option value="교내" {{ 'selected' if scope == '교내' }}>교내만</option>
-    <option value="외부" {{ 'selected' if scope == '외부' }}>외부만</option>
-  </select>
-  <select name="category" onchange="this.form.submit()">
-    <option value="">전체 분류</option>
-    {% for c in categories %}<option {{ 'selected' if category == c }}>{{ c }}</option>{% endfor %}
-  </select>
-  <label class="check small"><input type="checkbox" name="show_closed" value="true" {{ 'checked' if show_closed }} onchange="this.form.submit()"> 마감 포함</label>
+  <input type="hidden" name="scope" value="{{ scope }}">
+  <div class="field-row">
+    <label for="category">분류</label>
+    <select id="category" name="category" onchange="this.form.submit()">
+      <option value="">전체 분류</option>
+      {% for c in categories %}<option {{ 'selected' if category == c }}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <label class="check"><input type="checkbox" name="show_closed" value="true" {{ 'checked' if show_closed }} onchange="this.form.submit()"> 마감·오래된 공지 포함 (마감일 없는 공지는 게시 후 60일까지만 기본 표시)</label>
+  <noscript><button class="btn" type="submit">적용</button></noscript>
 </form>
 
-<p class="muted small">{{ items | length }}개 · 마감 빠른 순 (마감일 없는 학교 공지는 최근 게시 순으로 뒤에)</p>
+<p class="muted small"><b style="color:var(--text)">{{ items | length }}개</b> · 마감 빠른 순, 마감일 없는 공지는 최근 게시 순</p>
+<div class="cards">
 {% for o in items %}
   {% with reasons = none %}{% include "_card.html" %}{% endwith %}
 {% else %}
-  <p class="empty">조건에 맞는 활동이 없습니다.</p>
+  <p class="empty">조건에 맞는 활동이 없습니다. "마감·오래된 공지 포함"을 켜 보세요.</p>
 {% endfor %}
+</div>
 {% endblock %}
