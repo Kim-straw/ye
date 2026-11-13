@@ -24,7 +24,6 @@
   <nav class="tabbar">
     <a href="/me" class="{{ 'on' if request.url.path == '/me' }}">추천</a>
     <a href="/opportunities" class="{{ 'on' if request.url.path.startswith('/opportunities') }}">활동</a>
-    <a href="/jobs" class="{{ 'on' if request.url.path.startswith('/jobs') or request.url.path.startswith('/gap') }}">갭 분석</a>
     <a href="/profile/new" class="{{ 'on' if request.url.path.startswith('/profile') }}">내 정보</a>
   </nav>
 
