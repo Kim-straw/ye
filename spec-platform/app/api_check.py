@@ -35,8 +35,9 @@ def main():
     if not key or not url:
         raise SystemExit("[오류] .env에 DATA_GO_KR_KEY 와 JOB_API_URL 두 줄이 모두 있어야 합니다.")
 
-    # 공공데이터포털 공통 요청변수. 이름이 다르면 API 상세페이지의 '요청변수' 표를 보고 고침.
-    params = {"serviceKey": key, "pageNo": 1, "numOfRows": 3, "resultType": "json"}
+    # 요청변수 이름은 API 상세페이지 '요청변수' 표 기준 (2026-11-13 확인)
+    # ongoingYn=Y: 지금 진행 중인 채용공고만
+    params = {"serviceKey": key, "pageNo": 1, "numOfRows": 3, "resultType": "json", "ongoingYn": "Y"}
     full_url = url + ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
 
     try:
