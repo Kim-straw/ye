@@ -3,6 +3,7 @@
 클래스 하나 = 테이블(엑셀 시트) 하나, 클래스 속성 하나 = 칸(열) 하나입니다.
 """
 import os
+import re
 from datetime import date
 from pathlib import Path
 
@@ -13,11 +14,21 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship,
 DB_PATH = Path(os.environ.get("SPEC_DB") or Path(__file__).resolve().parent.parent / "app.db")
 
 
+def clean_database_url(raw: str) -> str:
+    """Neon에서 복사한 글자에 'psql' 명령, 따옴표, 줄바꿈이 같이 붙어도 postgresql://... 주소 부분만 꺼냄"""
+    m = re.search(r"postgres(?:ql)?://[^\s'\"]+", raw or "")
+    return m.group(0) if m else (raw or "").strip()
+
+
 def make_engine():
     """DATABASE_URL이 있으면 그 Postgres(예: Neon)에, 없으면 내 PC의 SQLite 파일(app.db)에 연결.
     서버(Render)는 재시작하면 파일이 사라져서, 서버에 올릴 때는 DATABASE_URL로 따로 둔 DB를 씀."""
-    url = (os.environ.get("DATABASE_URL") or "").strip()
+    raw = os.environ.get("DATABASE_URL") or ""
+    url = clean_database_url(raw)
     if url:
+        if not url.startswith(("postgres://", "postgresql://")):
+            # 비밀번호가 로그에 남지 않도록 값은 출력하지 않고 모양만 안내함
+            raise RuntimeError("DATABASE_URL이 postgresql:// 로 시작하지 않습니다. Neon의 'Connection string' 주소만 붙여 넣어 주세요.")
         for old in ("postgres://", "postgresql://"):  # 서비스마다 주소 앞부분이 달라서 하나로 맞춤
             if url.startswith(old):
                 url = "postgresql+psycopg://" + url[len(old):]

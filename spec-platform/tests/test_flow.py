@@ -143,3 +143,23 @@ def test_deploy_pieces(tmp_path, monkeypatch):
     from app.db import Department
     assert db.scalar(select(__import__("sqlalchemy").func.count(Department.id))) == 36 and before >= 1
     db.close()
+
+
+def test_database_url_cleanup():
+    """Neon 복사 글자에 명령어·따옴표·줄바꿈이 붙어 있어도 주소만 꺼내야 함 (배포 중 실제로 난 오류 대응)"""
+    from app import db as dbmod
+    pure = "postgresql://u:p@ep-x.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    for raw in [pure, f"psql '{pure}'", f'"{pure}"', f"  {pure}\n", f"DATABASE_URL={pure}", f"psql '{pure}'\n"]:
+        assert dbmod.clean_database_url(raw) == pure, raw
+    import os
+    os.environ["DATABASE_URL"] = f"psql '{pure}'"
+    try:
+        assert dbmod.make_engine().url.drivername == "postgresql+psycopg"
+        os.environ["DATABASE_URL"] = "엉뚱한 글자"
+        try:
+            dbmod.make_engine()
+            assert False, "잘못된 주소는 오류여야 함"
+        except RuntimeError as e:
+            assert "엉뚱한" not in str(e)  # 값 자체는 오류 문구에 넣지 않음
+    finally:
+        os.environ.pop("DATABASE_URL", None)
