@@ -11,7 +11,22 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship,
 
 # 환경변수 SPEC_DB가 있으면 그 파일을 씀 (테스트가 실제 DB를 지우지 않도록 따로 쓰기 위함)
 DB_PATH = Path(os.environ.get("SPEC_DB") or Path(__file__).resolve().parent.parent / "app.db")
-engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+
+
+def make_engine():
+    """DATABASE_URL이 있으면 그 Postgres(예: Neon)에, 없으면 내 PC의 SQLite 파일(app.db)에 연결.
+    서버(Render)는 재시작하면 파일이 사라져서, 서버에 올릴 때는 DATABASE_URL로 따로 둔 DB를 씀."""
+    url = (os.environ.get("DATABASE_URL") or "").strip()
+    if url:
+        for old in ("postgres://", "postgresql://"):  # 서비스마다 주소 앞부분이 달라서 하나로 맞춤
+            if url.startswith(old):
+                url = "postgresql+psycopg://" + url[len(old):]
+                break
+        return create_engine(url, pool_pre_ping=True, pool_recycle=300)  # DB가 잠들었다 깨어나도 끊긴 연결을 다시 맺음
+    return create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+
+
+engine = make_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
 

@@ -116,3 +116,30 @@ def test_forged_cookie_is_rejected():
         forged.cookies.set("user_id", fake)
         assert forged.get("/api/me").status_code == 401, fake
     assert security.verify(security.sign(7)) == 7 and security.verify(None) is None
+
+
+def test_deploy_pieces(tmp_path, monkeypatch):
+    """서버 배포용 부품: DB 주소 변환, 빈 DB 자동 채움(있으면 건드리지 않음), healthz"""
+    from app import db as dbmod, seed
+    monkeypatch.setenv("DATABASE_URL", "postgres://u:p@host/db?sslmode=require")
+    assert str(dbmod.make_engine().url).startswith("postgresql+psycopg://u:***@host/db")  # 비밀번호는 가려져 나옴
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@host/db")
+    assert dbmod.make_engine().url.drivername == "postgresql+psycopg"
+    monkeypatch.delenv("DATABASE_URL")
+    assert dbmod.make_engine().url.drivername == "sqlite"
+
+    seed.run()
+    assert seed.ensure() is False  # 이미 데이터가 있으면 아무것도 하지 않음
+    db = SessionLocal()
+    before = db.scalar(select(__import__("sqlalchemy").func.count(Opportunity.id)))
+    db.close()
+    from app.main import app
+    assert TestClient(app).get("/healthz").json() == {"ok": True}
+    # 완전히 빈 DB에서는 기본 데이터를 채움
+    from app.db import Base, engine
+    Base.metadata.drop_all(engine)
+    assert seed.ensure() is True
+    db = SessionLocal()
+    from app.db import Department
+    assert db.scalar(select(__import__("sqlalchemy").func.count(Department.id))) == 36 and before >= 1
+    db.close()

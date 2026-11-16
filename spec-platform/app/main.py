@@ -4,6 +4,9 @@
 - /api/... 주소          : JSON 데이터만 보냄 (나중에 다른 앱이 붙을 때, /docs에서 연습용)
 실행: uvicorn app.main:app --reload   (spec-platform 폴더에서)
 """
+import os
+import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -15,15 +18,27 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import logic, security
+from . import logic, rss_import, security, seed
 from .db import Department, Job, Opportunity, Review, School, Spec, Tag, User, UserSpec, get_db, init_db
 
 BASE = Path(__file__).resolve().parent
 
 
+def _refresh_loop():
+    """백그라운드로 학교 공지를 주기적으로 수집. 실패해도 서버는 계속 동작함."""
+    while True:
+        try:
+            rss_import.run()
+        except Exception as e:  # 학교 사이트가 서버의 접속을 막는 경우 등
+            print(f"[공지 수집 실패] {e}")
+        time.sleep(6 * 3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()  # 서버가 켜질 때 한 번: 테이블이 없으면 만듦
+    seed.ensure()  # 서버가 켜질 때 한 번: 테이블이 없으면 만들고, DB가 비어 있으면 기본 데이터를 채움 (있으면 건드리지 않음)
+    if os.environ.get("AUTO_REFRESH") == "1":  # 서버에서만: 학교 게시판 공지를 6시간마다 다시 가져옴
+        threading.Thread(target=_refresh_loop, daemon=True).start()
     yield
 
 
@@ -56,6 +71,12 @@ async def to_profile(request: Request, exc):
 
 
 # ---------- PWA: 폰에 설치하기 위한 파일 (주소가 루트여야 해서 따로 연결) ----------
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    """서버가 살아 있는지 확인하는 주소 (Render가 주기적으로 확인함). DB는 건드리지 않음"""
+    return {"ok": True}
+
+
 @app.get("/manifest.webmanifest", include_in_schema=False)
 def manifest():
     return FileResponse(BASE / "static" / "manifest.webmanifest", media_type="application/manifest+json")
@@ -126,7 +147,8 @@ async def save_profile(
     db.commit()
 
     resp = RedirectResponse("/me", status_code=303)  # 303: "저장했으니 이 주소로 다시 가세요"
-    resp.set_cookie(COOKIE, security.sign(user.id), max_age=60 * 60 * 24 * 180, httponly=True, samesite="lax")
+    https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"  # 인터넷(https)에서는 https로만 쿠키를 보냄
+    resp.set_cookie(COOKIE, security.sign(user.id), max_age=60 * 60 * 24 * 180, httponly=True, samesite="lax", secure=https)
     return resp
 
 

@@ -1,0 +1,21 @@
+# Render 설정 (Blueprint). 이 저장소 루트에 있어야 Render가 읽음.
+# 확인하지 못한 값: PYTHON_VERSION 이 Render에서 그대로 적용되는지 (공식 문서에서 따로 확인 필요)
+services:
+  - type: web
+    name: specroad
+    runtime: python
+    plan: free
+    branch: claude/student-spec-platform-plan-0ecel6
+    rootDir: spec-platform
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: SPEC_SECRET        # 쿠키 서명용 비밀키: Render가 무작위로 만들어 줌
+        generateValue: true
+      - key: DATABASE_URL       # Neon에서 복사한 주소: 처음 만들 때 Render가 입력칸을 보여 줌
+        sync: false
+      - key: AUTO_REFRESH       # 학교 게시판 공지를 6시간마다 자동 수집
+        value: "1"

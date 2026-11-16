@@ -7,6 +7,8 @@
 실행: python -m app.seed   (spec-platform 폴더에서)
 """
 
+from sqlalchemy import select
+
 from . import rss_import
 from .db import Base, Department, Job, JobRequirement, School, SessionLocal, Spec, Tag, engine
 
@@ -94,11 +96,8 @@ VERIFIED_RSS_SNAPSHOT = """<rss version="2.0"><channel><title>RSS 게시판 2.0<
 </channel></rss>"""
 
 
-def run():
-    Base.metadata.drop_all(engine)  # 매번 새로 만듦 (사용자 데이터가 생기면 쓰면 안 됨)
-    Base.metadata.create_all(engine)
-    db = SessionLocal()
-
+def _fill(db) -> int:
+    """기본 데이터(학교, 분야, 스펙, 학과, 직무)와 확인된 실제 공지 스냅샷을 채움. 저장한 공지 개수를 돌려줌."""
     school = School(name="고려대학교", campus="세종캠퍼스")
     db.add(school)
     tags = {name: Tag(name=name) for name in TAGS}
@@ -118,10 +117,32 @@ def run():
     db.commit()
     feed = rss_import.NIPA_575
     added = rss_import.save_items(db, rss_import.parse_rss(VERIFIED_RSS_SNAPSHOT, feed["base"]), feed)
-
     db.commit()
+    return added
+
+
+def run():
+    """DB를 통째로 지우고 다시 만듦 (내 PC에서 처음부터 다시 할 때. 서버에서는 쓰지 말 것)"""
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    db = SessionLocal()
+    added = _fill(db)
     db.close()
     print(f"기본 데이터 입력 완료 (실제 학교 공지 {added}개)")
+
+
+def ensure() -> bool:
+    """서버가 켜질 때 부르는 안전한 버전: 테이블이 없으면 만들고, DB가 비어 있을 때만 기본 데이터를 채움.
+    이미 데이터가 있으면 아무것도 지우지 않음. 새로 채웠으면 True."""
+    Base.metadata.create_all(engine)
+    db = SessionLocal()
+    try:
+        if db.scalars(select(School)).first() is None:
+            _fill(db)
+            return True
+        return False
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
