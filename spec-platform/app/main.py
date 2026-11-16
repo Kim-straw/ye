@@ -201,7 +201,11 @@ def write_review(opp_id: int, rating: int = Form(..., ge=1, le=5), content: str 
                  db: Session = Depends(get_db), user: User = Depends(require_user)):
     if db.get(Opportunity, opp_id) is None:
         raise HTTPException(404, "없는 활동입니다")
-    db.add(Review(opportunity_id=opp_id, user_id=user.id, rating=rating, content=content))
+    mine = db.scalars(select(Review).where(Review.opportunity_id == opp_id, Review.user_id == user.id)).first()
+    if mine:  # 한 사람당 활동 하나에 후기 하나: 다시 쓰면 기존 후기를 고침 (도배 방지)
+        mine.rating, mine.content = rating, content
+    else:
+        db.add(Review(opportunity_id=opp_id, user_id=user.id, rating=rating, content=content))
     db.commit()
     return RedirectResponse(f"/opportunities/{opp_id}", status_code=303)
 
@@ -225,6 +229,25 @@ def gap_page(job_id: int, request: Request, db: Session = Depends(get_db), user:
     if job is None:
         raise HTTPException(404, "없는 직무입니다")
     return templates.TemplateResponse(request, "gap.html", {"user": user, "r": logic.analyze_gap(db, user, job)})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy(request: Request, user: User | None = Depends(current_user)):
+    return templates.TemplateResponse(request, "privacy.html", {"user": user})
+
+
+@app.post("/profile/delete")
+def delete_profile(confirm: str = Form(""), db: Session = Depends(get_db), user: User = Depends(require_user)):
+    """내 정보 삭제: 프로필과 내가 쓴 후기를 DB에서 지우고 쿠키도 지움"""
+    if confirm != "yes":
+        raise HTTPException(400, "삭제 확인란에 체크해 주세요")
+    for r in db.scalars(select(Review).where(Review.user_id == user.id)).all():
+        db.delete(r)
+    db.delete(user)  # 관심 분야 연결과 보유 스펙도 함께 지워짐
+    db.commit()
+    resp = RedirectResponse("/?deleted=1", status_code=303)
+    resp.delete_cookie(COOKIE)
+    return resp
 
 
 @app.post("/logout")

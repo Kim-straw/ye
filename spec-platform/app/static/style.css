@@ -180,3 +180,31 @@ legend { font-family: var(--head); font-weight: 700; padding: 0 .3rem; }
 .gap-item.miss .status { color: var(--brand-ink); }
 .gap-item p { margin: .3rem 0; }
 .eyebrow { color: var(--brand-ink); font-weight: 700; font-size: .85rem; margin: 0; }
+
+/* ---------- 화면 전환 효과 (버튼을 누르면 스르륵 넘어가게) ----------
+   지원하는 브라우저: 페이지가 바뀔 때 헤더·하단 탭은 그대로 두고 가운데 내용만 부드럽게 바뀜 (View Transitions)
+   지원하지 않는 브라우저: 새 화면의 내용이 살짝 떠오르며 나타남
+   '움직임 줄이기'를 켠 사용자에게는 효과를 끔 */
+@view-transition { navigation: auto; }
+.topbar { view-transition-name: topbar; }
+.tabbar { view-transition-name: tabbar; }
+.page { view-transition-name: page; }
+::view-transition-old(page) { animation: page-out .18s ease-in both; }
+::view-transition-new(page) { animation: page-in .26s ease-out both; }
+@keyframes page-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } }
+@supports not (view-transition-name: none) {
+  .page { animation: page-in .26s ease-out both; }
+}
+
+/* 누르는 느낌: 버튼·카드·탭을 누르는 순간 살짝 눌리고, 색이 부드럽게 바뀜 */
+.btn, .card, .tabbar a, .seg a, .chip span, .tag.plain {
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+}
+.btn:active, a.card:active, .seg a:active, .chip span:active { transform: scale(.98); }
+.tabbar a:active { transform: scale(.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(page), ::view-transition-new(page), .page { animation: none; }
+  .btn:active, a.card:active, .seg a:active, .chip span:active, .tabbar a:active { transform: none; }
+}

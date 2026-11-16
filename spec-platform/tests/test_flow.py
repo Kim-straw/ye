@@ -163,3 +163,27 @@ def test_database_url_cleanup():
             assert "엉뚱한" not in str(e)  # 값 자체는 오류 문구에 넣지 않음
     finally:
         os.environ.pop("DATABASE_URL", None)
+
+
+def test_privacy_delete_and_review_once():
+    """개인정보 안내 페이지, 내 정보 삭제, 같은 활동에 후기 한 개만"""
+    from app.db import Review, User
+    fresh_db_with_rss()[0].close()  # 앞 테스트가 DB를 바꿔 놓았을 수 있어서, 최근 공지가 있는 상태로 다시 준비
+    client = client_with_profile()
+    assert client.get("/privacy").status_code == 200 and "Neon" in client.get("/privacy").text
+    assert 'href="/privacy"' in client.get("/").text
+
+    rid = client.get("/api/recommendations", params={"scope": "교내"}).json()[0]["id"]
+    client.post(f"/opportunities/{rid}/reviews", data={"rating": 5, "content": "첫 번째 후기입니다"})
+    client.post(f"/opportunities/{rid}/reviews", data={"rating": 2, "content": "고쳐 쓴 후기입니다"})
+    page = client.get(f"/opportunities/{rid}").text
+    assert "고쳐 쓴 후기입니다" in page and "첫 번째 후기입니다" not in page  # 두 번 써도 하나만 남음
+
+    uid = client.get("/api/me").json()["id"]
+    assert client.post("/profile/delete", data={}, follow_redirects=False).status_code == 400  # 확인 체크 없으면 거절
+    r = client.post("/profile/delete", data={"confirm": "yes"}, follow_redirects=False)
+    assert r.status_code == 303 and "deleted=1" in r.headers["location"]
+    db = SessionLocal()
+    assert db.get(User, uid) is None
+    assert db.scalars(select(Review).where(Review.user_id == uid)).first() is None
+    db.close()

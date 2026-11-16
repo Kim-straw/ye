@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% if request.query_params.get('deleted') %}<p class="notice" style="margin-bottom:1rem">내 정보와 후기를 삭제했습니다.</p>{% endif %}
 <section class="hero">
   <p class="eyebrow">세종캠 학생을 위한 프로그램 모음</p>
   <h1>흩어진 교내 프로그램을<br>내 관심 분야 순으로,<br>한 번에.</h1>
