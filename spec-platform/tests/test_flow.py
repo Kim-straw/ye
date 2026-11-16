@@ -100,3 +100,19 @@ def test_outside_fallback_and_empty_guide():
     db.close()
     page = client.get("/me").text
     assert "시험용 외부 공고" in page and "최근 순" in page  # 약학과 관심 분야와 안 겹쳐도 최근 대외활동으로 보임
+
+
+def test_forged_cookie_is_rejected():
+    """쿠키 번호를 직접 바꿔도(위조) 로그인되지 않아야 함"""
+    from app import security
+    from app.main import app
+    good = client_with_profile()
+    assert good.get("/api/me").status_code == 200
+    real = [c.value for c in good.cookies.jar if c.name == "user_id"][0]  # (같은 이름 쿠키가 둘이라 .get() 대신 목록에서 꺼냄)
+    uid = int(real.split(".")[0])
+    sig = real.split(".")[1]
+    for fake in [str(uid), f"{uid}.{'0' * 32}", f"{uid + 1}.{sig}", "abc.def", ""]:
+        forged = TestClient(app)  # 새 손님: 쿠키가 하나도 없는 상태에서 위조 값만 넣음
+        forged.cookies.set("user_id", fake)
+        assert forged.get("/api/me").status_code == 401, fake
+    assert security.verify(security.sign(7)) == 7 and security.verify(None) is None

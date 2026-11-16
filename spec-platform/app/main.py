@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import logic
+from . import logic, security
 from .db import Department, Job, Opportunity, Review, School, Spec, Tag, User, UserSpec, get_db, init_db
 
 BASE = Path(__file__).resolve().parent
@@ -37,10 +37,8 @@ COOKIE = "user_id"  # 손님 번호표 이름
 
 # ---------- 공통: 쿠키 번호표로 현재 사용자 찾기 ----------
 def current_user(request: Request, db: Session = Depends(get_db)) -> User | None:
-    raw = request.cookies.get(COOKIE)
-    if not raw or not raw.isdigit():
-        return None
-    return db.get(User, int(raw))
+    user_id = security.verify(request.cookies.get(COOKIE))  # 서명이 안 맞는(위조된) 쿠키는 없는 것으로 취급
+    return db.get(User, user_id) if user_id is not None else None
 
 
 def require_user(user: User | None = Depends(current_user)) -> User:
@@ -128,7 +126,7 @@ async def save_profile(
     db.commit()
 
     resp = RedirectResponse("/me", status_code=303)  # 303: "저장했으니 이 주소로 다시 가세요"
-    resp.set_cookie(COOKIE, str(user.id), max_age=60 * 60 * 24 * 180, httponly=True, samesite="lax")
+    resp.set_cookie(COOKIE, security.sign(user.id), max_age=60 * 60 * 24 * 180, httponly=True, samesite="lax")
     return resp
 
 

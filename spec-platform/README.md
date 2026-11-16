@@ -65,3 +65,11 @@ spec-platform/
 | `no such table` | 샘플 데이터를 안 넣음 | `python -m app.seed` |
 | 화면이 옛날 디자인 그대로 | 서비스 워커가 CSS를 저장해 둠 | 브라우저 강력 새로고침(Ctrl+Shift+R) 또는 `sw.js`의 `CACHE` 버전 숫자 올리기 |
 | `Address already in use` | 서버가 이미 켜져 있음 | 기존 터미널에서 Ctrl+C 또는 `--port 8001` |
+
+## 폰에서 열기
+
+- **같은 와이파이**: `uvicorn app.main:app --host 0.0.0.0 --port 8000` 으로 켜고, 폰에서 `http://(PC의 IPv4 주소):8000` 접속. 방화벽에서 "개인 네트워크" 허용 필요.
+- **와이파이와 상관없이(터널)**: 서버를 켠 채로 다른 PowerShell에서 `cloudflared tunnel --url http://localhost:8000` 을 실행하면 `https://....trycloudflare.com` 주소가 나옵니다.
+  - 이 주소는 실행할 때마다 바뀌고, **주소를 아는 사람은 누구나** 접속할 수 있습니다. 믿는 사람에게만 알려 주세요.
+  - 쿠키에 서명을 붙여 남의 프로필로 들어가는 위조는 막았지만, 로그인(본인 확인)은 아직 없습니다.
+  - 서명 비밀키는 `.secret` 파일(처음 실행 때 자동 생성)에 있습니다. 이 파일은 깃허브에 올리지 마세요(.gitignore에 들어 있음).

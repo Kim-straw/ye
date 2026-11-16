@@ -4,3 +4,4 @@ import os
 import tempfile
 
 os.environ["SPEC_DB"] = os.path.join(tempfile.mkdtemp(prefix="specroad-test-"), "test.db")
+os.environ["SPEC_SECRET"] = "test-only-secret"  # 테스트는 고정 비밀키를 씀 (.secret 파일을 만들지 않도록)
