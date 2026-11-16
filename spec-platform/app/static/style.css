@@ -1,23 +1,25 @@
 /* 스펙로드 화면 디자인: 고려대 세종캠퍼스 학생용.
-   크림슨(학교 느낌)은 상단 띠·홈 첫 화면·버튼·선택된 탭에만 쓰고, 나머지는 차분한 회백색.
-   제목은 명조, 본문은 고딕. 모서리를 거의 둥글리지 않아 학내 포털처럼 정돈된 느낌.
+   색: 학교 UI 매뉴얼의 Korea University Crimson(Pantone 202 C)과 웜그레이(Pantone 7528 C)를 기준으로 함.
+   공식 RGB 값은 확인하지 못해, 화면용 근사값(#862633 등)을 썼음.
+   구성은 학교 공식 홈페이지를 참고함: 흰 바탕, 굵은 고딕 제목, 크림슨은 로고·버튼·선택 표시에만, 큰 패널은 베이지.
+   모서리를 거의 둥글리지 않아 학내 포털처럼 정돈된 느낌.
    색은 아래 변수만 바꾸면 전체가 바뀜. */
 :root {
-  --bg: #f6f4f3; --surface: #ffffff; --text: #1b1516; --muted: #5f5558; --line: #e2dadc; --dash: #c9bec1;
-  --brand: #8b0029;        /* 배경으로 쓰는 크림슨 */
+  --bg: #ffffff; --surface: #ffffff; --panel: #f0ebe4; --text: #1a1718; --muted: #5b554f; --line: #e3ded5; --dash: #c9c2b6;
+  --brand: #862633;        /* 크림슨 (Pantone 202 C 근사값) */
   --on-brand: #ffffff;     /* 크림슨 위의 글자 */
-  --on-brand-soft: #fbe6ec;
-  --brand-ink: #8b0029;    /* 흰 배경 위의 크림슨 글자 */
-  --brand-soft: #f6e7eb;   /* 연한 크림슨 면 (교내 배지 등) */
-  --brand-deep: #5e001c;
+  --on-brand-soft: #f7e9ea;
+  --brand-ink: #862633;    /* 흰 배경 위의 크림슨 글자 */
+  --brand-soft: #f3e6e7;   /* 연한 크림슨 면 (교내 배지 등) */
+  --brand-deep: #5e1a23;
   --ok: #2c6b4a;
-  --serif: "Noto Serif KR", "Nanum Myeongjo", "Batang", serif;
+  --head: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;  /* 제목도 굵은 고딕 */
   --sans: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #141011; --surface: #1e1819; --text: #f0eaeb; --muted: #a79ca0; --line: #352c2e; --dash: #4a3e41;
-    --brand: #9c1239; --on-brand: #ffffff; --on-brand-soft: #fbe6ec; --brand-ink: #e58aa2; --brand-soft: #2c1a1f; --brand-deep: #c2415f;
+    --bg: #161213; --surface: #201a1b; --panel: #2a2122; --text: #f1ecec; --muted: #a9a198; --line: #382f30; --dash: #4d4344;
+    --brand: #8f2d3b; --on-brand: #ffffff; --on-brand-soft: #f7e9ea; --brand-ink: #e2909b; --brand-soft: #2d1c1f; --brand-deep: #c4505f;
     --ok: #7fc8a0;
   }
 }
@@ -28,10 +30,11 @@ body {
   word-break: keep-all; overflow-wrap: anywhere;  /* 한글은 단어 사이에서 줄바꿈 */
 }
 a { color: var(--brand-ink); }
-h1, h2, h3, .serif { font-family: var(--serif); font-weight: 700; letter-spacing: -0.02em; }
+h1, h2, h3, .serif { font-family: var(--head); font-weight: 700; letter-spacing: -0.03em; }
+h1 { font-weight: 800; }
 h1 { font-size: 1.5rem; line-height: 1.3; margin: 0 0 .4rem; }
 h2 {
-  font-size: 1.06rem; margin: 1.6rem 0 .65rem; padding-bottom: .4rem; border-bottom: 2px solid var(--brand);
+  font-size: 1.1rem; margin: 1.6rem 0 .65rem; padding-bottom: .4rem; border-bottom: 2px solid var(--brand);
   display: flex; justify-content: space-between; align-items: baseline; gap: .5rem;
 }
 h2 small { font-family: var(--sans); font-weight: 400; font-size: .78rem; color: var(--muted); }
@@ -43,13 +46,13 @@ h3 { font-size: 1rem; margin: .35rem 0 .1rem; line-height: 1.4; }
 
 /* ---------- 상단 띠 ---------- */
 .topbar {
-  position: sticky; top: 0; z-index: 5; background: var(--brand); color: var(--on-brand);
-  padding: .8rem max(20px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  position: sticky; top: 0; z-index: 5; background: var(--surface); color: var(--text); border-bottom: 1px solid var(--line);
+  padding: .75rem max(20px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: .75rem;
 }
-.brand { color: var(--on-brand); text-decoration: none; display: flex; flex-direction: column; line-height: 1.15; }
-.brand b { font-family: var(--serif); font-size: 1.3rem; letter-spacing: -0.02em; }
-.brand span { font-size: .7rem; letter-spacing: .08em; color: var(--on-brand-soft); }
-.who { font-size: .78rem; color: var(--on-brand-soft); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.brand { color: var(--brand-ink); text-decoration: none; display: flex; flex-direction: column; line-height: 1.1; }
+.brand b { font-family: var(--head); font-weight: 800; font-size: 1.45rem; letter-spacing: -0.04em; }
+.brand span { font-size: .66rem; font-weight: 500; letter-spacing: .1em; color: var(--brand-ink); }
+.who { font-size: .76rem; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .page { max-width: 600px; margin: 0 auto; padding: 1.2rem 20px 6.5rem; }
 .legal { margin-top: 2rem; padding-top: .8rem; border-top: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
 
@@ -79,16 +82,17 @@ h3 { font-size: 1rem; margin: .35rem 0 .1rem; line-height: 1.4; }
 
 /* ---------- 홈 ---------- */
 .hero {
-  background: var(--brand); color: var(--on-brand); margin: -1.2rem -20px 0; padding: .6rem 20px 1.8rem;
+  background: var(--panel); color: var(--text); margin: -1.2rem -20px 0; padding: 1.8rem 20px 1.9rem;
+  border-bottom: 3px solid var(--brand);
 }
-.hero .eyebrow { margin: 0 0 .5rem; font-size: .75rem; font-weight: 700; letter-spacing: .12em; color: var(--on-brand-soft); }
-.hero h1 { color: var(--on-brand); font-size: 1.8rem; line-height: 1.32; margin-bottom: .7rem; }
-.hero p { margin: 0 0 1.1rem; color: var(--on-brand-soft); font-size: .92rem; }
-.hero .btn { display: inline-flex; width: auto; margin: 0; background: var(--on-brand); color: var(--brand); padding: 0 1.4rem; }
-.hero .btn:hover { background: var(--on-brand-soft); }
+.hero .eyebrow { margin: 0 0 .6rem; font-size: .78rem; font-weight: 700; letter-spacing: .1em; color: var(--brand-ink); }
+.hero h1 { color: var(--text); font-size: 2rem; line-height: 1.25; margin-bottom: .8rem; }
+.hero p { margin: 0 0 1.2rem; color: var(--muted); font-size: .94rem; }
+.hero .btn { display: inline-flex; width: auto; margin: 0; background: var(--brand); color: var(--on-brand); padding: 0 1.5rem; }
+.hero .btn:hover { background: var(--brand-deep); }
 .steps { display: grid; gap: .5rem; margin-top: 1.2rem; }
 .step { display: flex; gap: .9rem; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: .7rem .9rem; }
-.step > b { font-family: var(--serif); color: var(--brand-ink); font-size: 1.15rem; line-height: 1.3; }
+.step > b { font-family: var(--head); color: var(--brand-ink); font-size: 1.15rem; line-height: 1.3; }
 .step h3 { margin: 0; }
 .step p { margin: 0; font-size: .82rem; color: var(--muted); }
 
@@ -117,7 +121,7 @@ a.card:hover { border-color: var(--brand-ink); }
 .cta > div { flex: 1; min-width: 0; }
 .cta b { display: block; font-size: .9rem; }
 .cta span { font-size: .82rem; color: var(--muted); }
-.notice { background: var(--brand-soft); color: var(--text); padding: .65rem .85rem; border-radius: 4px; font-size: .85rem; border-left: 3px solid var(--brand); }
+.notice { background: var(--panel); color: var(--text); padding: .65rem .85rem; border-radius: 4px; font-size: .85rem; border-left: 3px solid var(--brand); }
 
 /* ---------- 활동 목록 ---------- */
 .seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--brand-ink); border-radius: 4px; overflow: hidden; }
@@ -151,7 +155,7 @@ textarea { min-height: 88px; resize: vertical; }
 .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .row input { min-width: 0; }
 fieldset { margin: 0; padding: .6rem .9rem .9rem; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); min-width: 0; }
-legend { font-family: var(--serif); font-weight: 700; padding: 0 .3rem; }
+legend { font-family: var(--head); font-weight: 700; padding: 0 .3rem; }
 .chips { display: flex; flex-wrap: wrap; gap: .4rem; }
 .chip { position: relative; }
 .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
