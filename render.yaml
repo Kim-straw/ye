@@ -2,7 +2,7 @@
 # 확인하지 못한 값: PYTHON_VERSION 이 Render에서 그대로 적용되는지 (공식 문서에서 따로 확인 필요)
 services:
   - type: web
-    name: specroad
+    name: sejong-specroad
     runtime: python
     plan: free
     branch: claude/student-spec-platform-plan-0ecel6
