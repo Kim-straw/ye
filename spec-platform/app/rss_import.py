@@ -11,7 +11,7 @@ RSS = 게시판 앞의 무료 전단지 꽂이. 로그인 없이 열리는 주�
 import html
 import re
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 import defusedxml.ElementTree as ET  # 외부 XML 공격(XXE 등)을 막아 주는 안전한 파서
@@ -105,6 +105,49 @@ def parse_date(text: str) -> date | None:
         return None
 
 
+DEADLINE_RE = re.compile(r"~\s*(\d{1,2})\s*[/.]\s*(\d{1,2})")
+
+
+def parse_deadline(title: str, posted_at: date | None) -> date | None:
+    """제목 속 '(~11/24)', '(~11/30 17:00)', '(~11.19)' 같은 표기를 마감일로 읽음.
+    연도는 적혀 있지 않아서 게시일의 해로 보고, 게시일보다 한 달 넘게 앞서면 다음 해로 봄(12월 게시 → 1월 마감).
+    '(11/25~26)'처럼 행사 기간이나 '채용 시 마감'은 마감일이 아니므로 None."""
+    m = DEADLINE_RE.search(title or "")
+    if not m or posted_at is None:
+        return None
+    try:
+        d = date(posted_at.year, int(m.group(1)), int(m.group(2)))
+    except ValueError:
+        return None
+    if d < posted_at - timedelta(days=30):
+        try:
+            d = date(posted_at.year + 1, d.month, d.day)
+        except ValueError:
+            return None
+    return d
+
+
+def clean_title(title: str) -> str:
+    return title.strip().rstrip("}").strip()  # 이 게시판은 제목 끝에 '}'가 붙어 옴
+
+
+def backfill_deadlines(db) -> int:
+    """마감일 표기 기능이 생기기 전에 저장된 글의 마감일과 제목 끝 '}'를 채움"""
+    n = 0
+    for o in db.scalars(select(Opportunity).where(Opportunity.source == "rss")):
+        changed = False
+        t = clean_title(o.title)
+        if t != o.title:
+            o.title, changed = t, True
+        if o.deadline is None:
+            d = parse_deadline(o.title, o.posted_at)
+            if d:
+                o.deadline, changed = d, True
+        n += changed
+    db.commit()
+    return n
+
+
 def clean(text: str | None) -> str:
     text = html.unescape(html.unescape(text or ""))  # 학교 RSS는 &amp;#9312; 처럼 두 번 감싼 기호가 있음 -> ①
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
@@ -117,7 +160,7 @@ def parse_rss(xml_text: str, base: str) -> list[dict]:
     root = ET.fromstring(xml_text)
     items = []
     for it in root.iter("item"):
-        title = clean(it.findtext("title"))
+        title = clean_title(clean(it.findtext("title")))
         link = (it.findtext("link") or "").strip()
         if link.startswith("/"):  # 학교 RSS는 링크가 /bbs/... 로 시작 -> 사이트 주소를 앞에 붙임
             link = base + link
@@ -162,7 +205,7 @@ def save_items(db, items: list[dict], feed: dict) -> int:
         db.add(Opportunity(
             school_id=school.id if (school and scope == "교내") else None, scope=scope, category=feed["category"],
             title=item["title"], host=feed["host"], description=item["description"],
-            difficulty=None, hours=None, deadline=None, posted_at=item["posted_at"],
+            difficulty=None, hours=None, deadline=parse_deadline(item["title"], item["posted_at"]), posted_at=item["posted_at"],
             url=item["url"], source="rss", is_sample=False,
             tags=[tags[n] for n in guess(text, TAG_KEYWORDS) if n in tags],
             specs=[specs[n] for n in guess(text, SPEC_KEYWORDS) if n in specs],
@@ -176,6 +219,9 @@ def save_items(db, items: list[dict], feed: dict) -> int:
 def run():
     init_db()
     db = SessionLocal()
+    filled = backfill_deadlines(db)
+    if filled:
+        print(f"[정리] 제목의 마감일 표기를 읽어 {filled}개 글 갱신")
     removed = cleanup_outside(db)
     if removed:
         print(f"[정리] 학생 대상이 아닌 대외활동 {removed}개 삭제")

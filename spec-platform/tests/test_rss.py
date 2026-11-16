@@ -128,3 +128,34 @@ def test_outside_filter_drops_non_student_posts():
     db.commit()
     assert rss_import.cleanup_outside(db) == 1
     db.close()
+
+
+def test_deadline_from_title():
+    """제목의 '(~11/24)' 표기를 마감일로 읽고, 행사 기간·'채용 시 마감'은 읽지 않으며, 제목 끝 '}'는 지움"""
+    p = date(2026, 11, 13)
+    assert rss_import.parse_deadline("[뱅크샐러드] 인턴십 2기 (~11/24)", p) == date(2026, 11, 24)
+    assert rss_import.parse_deadline("[네이버] 동계 인턴십 (~11/23 10:00)", p) == date(2026, 11, 23)
+    assert rss_import.parse_deadline("[삼성메디슨] 신입 채용 (~11.19)", p) == date(2026, 11, 19)
+    assert rss_import.parse_deadline("[토스] 단기계약직 (~채용 시 마감)", p) is None
+    assert rss_import.parse_deadline("블록체인 진흥주간 (11/25~26)", p) is None
+    assert rss_import.parse_deadline("신입 채용 (~1/10)", date(2026, 12, 20)) == date(2027, 1, 10)  # 해 넘김
+    assert rss_import.parse_deadline("공고 (~13/45)", p) is None  # 잘못된 날짜
+    assert rss_import.clean_title("[롯데그룹] Job Cafe (~11/24 17:00)}") == "[롯데그룹] Job Cafe (~11/24 17:00)"
+
+    seed.run()
+    feed = {"url": "x/bbs/cdc/526/rssList.do", "base": "https://career.korea.ac.kr", "host": "career.korea.ac.kr", "category": "취업"}
+    xml = ('<rss><channel><item><title><![CDATA[ [뱅크샐러드] 인턴십 2기 (~11/24)} ]]></title>'
+           '<link>/bbs/cdc/526/274446/artclView.do</link><pubDate>2026-11-13 09:13:56.0</pubDate></item></channel></rss>')
+    items = rss_import.parse_rss(xml, feed["base"])
+    db = SessionLocal()
+    assert rss_import.save_items(db, items, feed) == 1
+    row = db.scalars(select(Opportunity).where(Opportunity.url == items[0]["url"])).one()
+    assert row.title == "[뱅크샐러드] 인턴십 2기 (~11/24)" and row.deadline == date(2026, 11, 24)
+
+    # 이미 저장된 옛 글(마감일 없음, 제목 끝 '}')도 채워짐
+    row.deadline, row.title = None, "[뱅크샐러드] 인턴십 2기 (~11/24)}"
+    db.commit()
+    assert rss_import.backfill_deadlines(db) == 1
+    db.refresh(row)
+    assert row.deadline == date(2026, 11, 24) and not row.title.endswith("}")
+    db.close()
