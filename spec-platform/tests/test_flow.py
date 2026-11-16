@@ -187,3 +187,30 @@ def test_privacy_delete_and_review_once():
     assert db.get(User, uid) is None
     assert db.scalars(select(Review).where(Review.user_id == uid)).first() is None
     db.close()
+
+
+def test_recruit_tab():
+    """인턴·채용 칸: 현장실습·취업 글만 모으고, 검색·종류·내 전공 필터가 동작"""
+    from datetime import date
+    from app import rss_import, seed
+    from app.main import app
+    seed.run()
+    db = SessionLocal(); t = date.today().isoformat()
+    def add(title, cat, desc, scope="교내"):
+        xml = f'<rss><channel><item><title>{title}</title><link>/x/{abs(hash(title))}/artclView.do</link><pubDate>{t} 09:00:00.0</pubDate><description>{desc}</description></item></channel></rss>'
+        rss_import.save_items(db, rss_import.parse_rss(xml, "https://sejong.korea.ac.kr"), {"host": "시험", "category": cat, "scope": scope})
+    add("2027 동계 현장실습 참여 학생 모집", "현장실습", "기업 경영 직무")
+    add("공공기관 체험형 인턴 안내", "외부기관공고", "데이터 분석", scope="외부")
+    add("졸업앨범 촬영 안내", "교내행사", "사진")  # 인턴·채용이 아님 -> 빠져야 함
+    db.close()
+    client = TestClient(app)
+    page = client.get("/recruit").text
+    assert "현장실습 참여 학생 모집" in page and "체험형 인턴" in page and "졸업앨범" not in page
+    assert "체험형 인턴" not in client.get("/recruit", params={"kind": "현장실습"}).text
+    assert "현장실습 참여" not in client.get("/recruit", params={"q": "인턴"}).text
+    assert 'href="/recruit"' in client.get("/").text  # 하단 탭에 있음
+    r = client.post("/profile", data={"nickname": "r", "department_id": dept_id("응용수리과학부 데이터계산과학전공"), "grade": 2, "admission_year": 2025}, follow_redirects=False)
+    client.cookies.set("user_id", r.cookies["user_id"])
+    mine = client.get("/recruit", params={"mine": "true"}).text
+    assert "체험형 인턴" in mine and "현장실습 참여" not in mine  # 데이터 분야 학과 -> 데이터 글만
+    assert "현재 탐색 기준" in mine and "전공 제한 없이 모두 보기" in mine

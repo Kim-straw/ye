@@ -49,9 +49,9 @@ h3 { font-size: 1rem; margin: .35rem 0 .1rem; line-height: 1.4; }
   position: sticky; top: 0; z-index: 5; background: var(--surface); color: var(--text); border-bottom: 1px solid var(--line);
   padding: .75rem max(20px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: .75rem;
 }
-.brand { color: var(--brand-ink); text-decoration: none; display: flex; flex-direction: column; line-height: 1.1; }
+.brand { flex: none; color: var(--brand-ink); text-decoration: none; display: flex; flex-direction: column; line-height: 1.1; }
 .brand b { font-family: var(--head); font-weight: 800; font-size: 1.45rem; letter-spacing: -0.04em; }
-.brand span { font-size: .66rem; font-weight: 500; letter-spacing: .1em; color: var(--brand-ink); }
+.brand span { font-size: .66rem; font-weight: 500; letter-spacing: .1em; color: var(--brand-ink); white-space: nowrap; }
 .who { font-size: .76rem; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .page { max-width: 600px; margin: 0 auto; padding: 1.2rem 20px 6.5rem; }
 .legal { margin-top: 2rem; padding-top: .8rem; border-top: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
@@ -61,7 +61,7 @@ h3 { font-size: 1rem; margin: .35rem 0 .1rem; line-height: 1.4; }
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 5; background: var(--surface); border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.tabbar nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 600px; margin: 0 auto; }
+.tabbar nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 600px; margin: 0 auto; }
 .tabbar a {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px;
   text-decoration: none; color: var(--muted); font-size: .75rem; border-top: 3px solid transparent; margin-top: -1px;
@@ -208,3 +208,28 @@ legend { font-family: var(--head); font-weight: 700; padding: 0 .3rem; }
   ::view-transition-old(page), ::view-transition-new(page), .page { animation: none; }
   .btn:active, a.card:active, .seg a:active, .chip span:active, .tabbar a:active { transform: none; }
 }
+
+/* ---------- 인턴·채용 칸: 머리말 + 건수 + 탐색 기준 + 검색 ---------- */
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1rem; }
+.page-head h1 { font-size: 1.85rem; margin: .15rem 0 .35rem; }
+.page-head p { margin: 0; }
+.kicker { font-size: .7rem; font-weight: 700; letter-spacing: .12em; color: var(--brand-ink); margin: 0; }
+.count { flex: none; text-align: right; line-height: 1; }
+.count b { font-family: var(--head); font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.count span { margin-left: .2rem; font-size: .8rem; color: var(--muted); }
+.criteria {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; padding: .7rem .9rem; margin-bottom: .8rem;
+  background: var(--panel); border-radius: 4px; font-size: .82rem;
+}
+.criteria .sep { color: var(--dash); }
+.criteria .more { margin-left: auto; font-size: .8rem; font-weight: 700; text-decoration: none; }
+.finder { border: 1px solid var(--line); border-radius: 4px; padding: .8rem; margin-bottom: 1rem; display: grid; gap: .6rem; background: var(--surface); }
+.finder-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: center; }
+.finder-row.checks { display: flex; flex-wrap: wrap; gap: .2rem 1rem; }
+.search { position: relative; display: block; }
+.search svg { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.search input { width: 100%; min-height: 44px; padding: .5rem .7rem .5rem 2.2rem; font: inherit; font-size: .92rem; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.finder select { width: auto; min-width: 7.5rem; }
+.pill { font-size: .72rem; padding: .2rem .55rem; border-radius: 2px; background: var(--panel); color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 380px) { .page-head { flex-direction: column; align-items: flex-start; } .count { text-align: left; } }

@@ -185,6 +185,32 @@ def opportunity_list(request: Request, scope: str = "", category: str = "", show
     })
 
 
+@app.get("/recruit", response_class=HTMLResponse)
+def recruit(request: Request, q: str = "", kind: str = "", mine: bool = False, show_closed: bool = False,
+            db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    """인턴·채용 칸: 현장실습·취업 공지·공공기관 인턴/채용 공고만 모아서 검색·필터"""
+    today = date.today()
+    items = [o for o in db.scalars(select(Opportunity)).all() if logic.is_recruit(o)]
+    if not show_closed:
+        items = [o for o in items if logic.is_open(o, today)]
+    if kind:
+        items = [o for o in items if logic.recruit_kind(o) == kind]
+    words = q.strip().lower()
+    if words:
+        items = [o for o in items if words in f"{o.title} {o.host} {o.description}".lower()]
+    if mine and user:
+        my = logic.user_tag_ids(user)
+        items = [o for o in items if any(t.id in my for t in o.tags)]
+    items.sort(key=logic.sort_key)
+    my_tags = []
+    if user:
+        my_tags = list(dict.fromkeys([t.name for t in user.department.tags] + [t.name for t in user.tags]))[:3]
+    return templates.TemplateResponse(request, "recruit.html", {
+        "user": user, "items": items, "q": q, "kind": kind, "mine": mine, "show_closed": show_closed,
+        "kinds": logic.RECRUIT_KINDS, "kind_of": logic.recruit_kind, "my_tags": my_tags,
+    })
+
+
 @app.get("/opportunities/{opp_id}", response_class=HTMLResponse)
 def opportunity_detail(opp_id: int, request: Request, db: Session = Depends(get_db),
                        user: User | None = Depends(current_user)):

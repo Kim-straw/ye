@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}인턴·채용 · 스펙로드{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <p class="kicker">RECRUITMENT / 인턴·채용</p>
+    <h1>인턴 · 채용</h1>
+    <p class="muted small">현장실습, 학교 취업 공지, 공공기관 인턴·채용 공고를 모았습니다. 카드를 누르면 원문 공고로 이어집니다.</p>
+  </div>
+  <p class="count"><b>{{ items | length }}</b><span>건</span></p>
+</header>
+
+{% if user %}
+<div class="criteria">
+  <span class="muted">현재 탐색 기준</span>
+  <b>{{ user.department.name }}</b><span class="sep">/</span>
+  <b>{{ my_tags | join(' · ') if my_tags else '관심 분야 없음' }}</b><span class="sep">/</span>
+  <b>{{ user.grade }}학년</b>
+  {% if mine %}<a class="more" href="/recruit?q={{ q | urlencode }}&kind={{ kind | urlencode }}{{ '&show_closed=true' if show_closed }}">전공 제한 없이 모두 보기 ↗</a>{% endif %}
+</div>
+{% endif %}
+
+<form class="finder" method="get" action="/recruit">
+  <div class="finder-row">
+    <label class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+      <span class="sr">검색</span>
+      <input type="search" name="q" value="{{ q }}" placeholder="공고명·기관 검색">
+    </label>
+    <label class="sr" for="kind">공고 종류</label>
+    <select id="kind" name="kind" onchange="this.form.submit()">
+      <option value="">전체 종류</option>
+      {% for k in kinds %}<option {{ 'selected' if kind == k }}>{{ k }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="finder-row checks">
+    <span class="pill">교내 공지 · 공공기관 공고</span>
+    {% if user %}<label class="check"><input type="checkbox" name="mine" value="true" {{ 'checked' if mine }} onchange="this.form.submit()"> 내 전공·관심 분야 관련</label>{% endif %}
+    <label class="check"><input type="checkbox" name="show_closed" value="true" {{ 'checked' if show_closed }} onchange="this.form.submit()"> 마감·오래된 공고 포함</label>
+  </div>
+  <noscript><button class="btn" type="submit">검색</button></noscript>
+</form>
+
+<div class="cards">
+{% for o in items %}
+  {% with reasons = [kind_of(o)] %}{% include "_card.html" %}{% endwith %}
+{% else %}
+  <p class="empty">조건에 맞는 공고가 없습니다.<br>검색어를 지우거나 "마감·오래된 공고 포함"을 켜 보세요.</p>
+{% endfor %}
+</div>
+{% endblock %}

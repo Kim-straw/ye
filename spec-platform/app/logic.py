@@ -27,6 +27,36 @@ def open_clause(today: date):
     )
 
 
+def is_open(opp: Opportunity, today: date | None = None) -> bool:
+    """open_clause와 같은 규칙을 파이썬으로: 마감 전이거나, 마감일 없는 글은 게시 후 FRESH_DAYS일 이내"""
+    today = today or date.today()
+    if opp.deadline is not None:
+        return opp.deadline >= today
+    return opp.posted_at is not None and (today - opp.posted_at).days <= FRESH_DAYS
+
+
+# ---------- 인턴·채용 칸 ----------
+RECRUIT_CATEGORIES = {"현장실습", "진로취업", "취업", "공공기관 인턴", "공공기관 채용"}
+RECRUIT_WORDS = ("인턴", "채용", "현장실습")
+RECRUIT_KINDS = ["현장실습", "인턴", "채용", "취업 공지"]
+
+
+def is_recruit(opp: Opportunity) -> bool:
+    """인턴·채용 칸에 보여 줄 글인지: 취업·현장실습 게시판 글이거나 제목에 인턴·채용·현장실습이 들어간 글"""
+    return opp.category in RECRUIT_CATEGORIES or any(w in opp.title for w in RECRUIT_WORDS)
+
+
+def recruit_kind(opp: Opportunity) -> str:
+    text = opp.title + " " + opp.category
+    if "현장실습" in text:
+        return "현장실습"
+    if "인턴" in text:
+        return "인턴"
+    if "채용" in text:
+        return "채용"
+    return "취업 공지"
+
+
 def user_tag_ids(user: User) -> set[int]:
     """내 관심 태그 + 내 학과의 기본 태그"""
     return {t.id for t in user.tags} | {t.id for t in user.department.tags}
