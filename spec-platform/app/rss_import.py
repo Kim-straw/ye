@@ -44,6 +44,17 @@ FEEDS = [
 # 이 단어가 제목에 있으면 '프로그램 모집'이 아닌 글로 보고 제외
 EXCLUDE = ["수상작", "결과", "합격자", "선정자", "명단", "폐강", "휴무"]
 
+# 외부기관공고(대외활동)에만 추가로 거르는 단어: 학생이 아니라 기업·교직원·전문가를 찾는 글
+# (실제 게시판 글을 다 보고 정한 목록이 아니라 흔한 유형으로 정한 1차 기준. 걸러진 글은 run() 출력에 개수로 나옴)
+OUTSIDE_EXCLUDE = [
+    "입찰", "용역", "조달", "계약 공고", "공사",                      # 업체 대상
+    "참여기업", "수요기업", "입주기업", "기업 모집", "기업 대상", "기업체 모집",
+    "교원 채용", "교원 초빙", "교수 초빙", "전임교원", "교직원",          # 교직원 대상
+    "평가위원", "심사위원", "자문위원", "전문위원", "위원 모집", "위원 위촉",  # 전문가 대상
+    "연구과제", "과제 공모", "연구자 모집",                             # 연구자(교수) 대상
+    "시스템 점검", "사무실 이전", "이전 안내", "휴관",                    # 안내문
+]
+
 # 키워드 -> 태그 (AI를 붙이면 이 부분을 대체할 수 있음)
 TAG_KEYWORDS = {
     "개발": ["SW", "소프트웨어", "개발", "코딩", "프로그래밍", "해커톤"],
@@ -115,8 +126,22 @@ def parse_rss(xml_text: str, base: str) -> list[dict]:
     return items
 
 
-def is_program(title: str) -> bool:
-    return not any(word in title for word in EXCLUDE)
+def is_program(title: str, scope: str = "교내") -> bool:
+    """학생이 참여할 수 있는 프로그램 글인지. 대외활동(외부)은 업체·교직원 대상 글을 한 번 더 거름"""
+    words = EXCLUDE + OUTSIDE_EXCLUDE if scope == "외부" else EXCLUDE
+    return not any(word in title for word in words)
+
+
+def cleanup_outside(db) -> int:
+    """기준이 바뀌기 전에 이미 저장된 대외활동 중 거를 글을 지움 (후기가 달린 글은 남김)"""
+    rows = db.scalars(select(Opportunity).where(Opportunity.scope == "외부", Opportunity.source == "rss")).all()
+    removed = 0
+    for o in rows:
+        if not o.reviews and not is_program(o.title, "외부"):
+            db.delete(o)
+            removed += 1
+    db.commit()
+    return removed
 
 
 def guess(text: str, table: dict[str, list[str]]) -> list[str]:
@@ -130,10 +155,10 @@ def save_items(db, items: list[dict], feed: dict) -> int:
     known = set(db.scalars(select(Opportunity.url).where(Opportunity.source == "rss")))
     added = 0
     for item in items:
-        if item["url"] in known or not is_program(item["title"]):
+        scope = feed.get("scope", "교내")
+        if item["url"] in known or not is_program(item["title"], scope):
             continue  # 이미 넣은 글이거나 프로그램이 아닌 글
         text = item["title"] + " " + item["description"]
-        scope = feed.get("scope", "교내")
         db.add(Opportunity(
             school_id=school.id if (school and scope == "교내") else None, scope=scope, category=feed["category"],
             title=item["title"], host=feed["host"], description=item["description"],
@@ -151,6 +176,9 @@ def save_items(db, items: list[dict], feed: dict) -> int:
 def run():
     init_db()
     db = SessionLocal()
+    removed = cleanup_outside(db)
+    if removed:
+        print(f"[정리] 학생 대상이 아닌 대외활동 {removed}개 삭제")
     for feed in FEEDS:
         board = feed["url"].split("/bbs/")[1].split("/rssList")[0]  # 예: fieldwork/575 (게시판 구분용)
         label = f"{feed['host']} ({board})"

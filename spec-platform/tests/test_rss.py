@@ -107,3 +107,24 @@ def test_external_feed_goes_to_outside_activities():
     assert row.scope == "외부" and row.school_id is None
     assert [FEED["host"]] == [rss_import.FEEDS[3]["host"]]  # nipa 게시판이 목록에 그대로 있음
     db.close()
+
+
+def test_outside_filter_drops_non_student_posts():
+    """대외활동(외부) 게시판에서 업체·교직원·전문가 대상 글은 거르고, 학생 대상 글은 남겨야 함. 교내 게시판의 '교수 특강'은 영향 없음"""
+    seed.run()
+    feed = {"url": "https://sejong.korea.ac.kr/bbs/koreaSejong/663/rssList.do?row=50", "base": "https://sejong.korea.ac.kr",
+            "host": "세종캠퍼스 외부기관공고", "category": "외부기관공고", "scope": "외부"}
+    titles = ["2027 청년 서포터즈 모집", "OO청사 청소 용역 입찰 공고", "2027 참여기업 모집", "외부 평가위원 모집", "대학생 공모전 안내"]
+    items = [{"title": t, "url": f"https://x.test/{i}", "posted_at": date.today(), "description": ""} for i, t in enumerate(titles)]
+    db = SessionLocal()
+    assert rss_import.save_items(db, items, feed) == 2
+    saved = set(db.scalars(select(Opportunity.title).where(Opportunity.scope == "외부", Opportunity.source == "rss")))
+    assert saved == {"2027 청년 서포터즈 모집", "대학생 공모전 안내"}
+    assert rss_import.is_program("교수 특강 안내", "교내")
+
+    # 기준이 생기기 전에 저장된 글도 정리됨
+    db.add(Opportunity(scope="외부", category="외부기관공고", title="연구과제 공모 안내", host="h", url="https://x.test/old",
+                       source="rss", posted_at=date.today()))
+    db.commit()
+    assert rss_import.cleanup_outside(db) == 1
+    db.close()
