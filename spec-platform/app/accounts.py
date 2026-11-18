@@ -63,9 +63,14 @@ def account_error(login_id: str, password: str, password2: str | None = None) ->
 
 
 class LoginLimiter:
-    """같은 (IP, 아이디)로 WINDOW초 안에 LIMIT번 틀리면 잠시 막음.
+    """비밀번호를 계속 찍어 보는 시도를 막음. 두 겹으로 막음:
+    1) 같은 (IP, 아이디)로 WINDOW초 안에 LIMIT번 틀리면 막음
+    2) IP와 상관없이 같은 아이디로 WINDOW초 안에 ID_LIMIT번 틀리면 막음
+       - 서버 설정(--forwarded-allow-ips='*') 때문에 접속자가 X-Forwarded-For 값을 바꿔서 IP를 속일 수 있어서, IP만 보는 1)은 우회될 수 있음
+       - 대가: 남이 내 아이디로 일부러 틀려서 WINDOW초(10분) 동안 나를 잠시 못 들어오게 할 수 있음 (비밀번호가 뚫리는 것보다 낫다고 판단)
     한계: 서버 메모리에만 기억하므로 서버가 다시 켜지면(무료 Render는 자주 잠듦) 기록이 지워짐."""
-    LIMIT, WINDOW = 5, 600
+    LIMIT, ID_LIMIT, WINDOW = 5, 20, 600
+    MAX_KEYS = 10_000  # 아무 아이디로 계속 시도해 메모리를 채우는 것을 막는 상한
 
     def __init__(self):
         self._fails: dict[tuple[str, str], list[float]] = {}
@@ -73,19 +78,35 @@ class LoginLimiter:
 
     def _recent(self, key, now):
         items = [t for t in self._fails.get(key, []) if now - t < self.WINDOW]
-        self._fails[key] = items
+        if items:
+            self._fails[key] = items
+        else:
+            self._fails.pop(key, None)  # 오래된 기록은 지움
         return items
+
+    def _prune(self, now):
+        if len(self._fails) > self.MAX_KEYS:
+            for key in list(self._fails):
+                self._recent(key, now)
+            if len(self._fails) > self.MAX_KEYS:  # 그래도 많으면 가장 오래된 절반을 버림
+                for key in sorted(self._fails, key=lambda k: self._fails[k][-1])[: len(self._fails) // 2]:
+                    del self._fails[key]
 
     def blocked(self, ip: str, login_id: str) -> bool:
         with self._lock:
-            return len(self._recent((ip, login_id), time.monotonic())) >= self.LIMIT
+            now = time.monotonic()
+            return (len(self._recent((ip, login_id), now)) >= self.LIMIT
+                    or len(self._recent(("*", login_id), now)) >= self.ID_LIMIT)
 
     def fail(self, ip: str, login_id: str):
         with self._lock:
             now = time.monotonic()
-            self._recent((ip, login_id), now).append(now)
+            self._prune(now)
+            for key in ((ip, login_id), ("*", login_id)):
+                self._fails.setdefault(key, []).append(now)
 
     def reset(self, ip: str, login_id: str):
+        """로그인에 성공하면 이 IP의 실패 기록만 지움 (아이디 전체 기록은 남겨서, 남의 IP에서 맞춰 본 시도가 지워지지 않게)"""
         with self._lock:
             self._fails.pop((ip, login_id), None)
 

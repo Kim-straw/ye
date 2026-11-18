@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import accounts, logic, rss_import, security, seed
-from .db import Department, Job, Opportunity, Review, School, Spec, Tag, User, UserSpec, get_db, init_db
+from .db import Department, Job, Opportunity, Review, School, Spec, Tag, User, UserSpec, get_db
 
 BASE = Path(__file__).resolve().parent
 

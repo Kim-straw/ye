@@ -149,3 +149,21 @@ def test_login_link_and_pages():
     page = c.get("/login").text
     assert "비밀번호를 잊으면 새 프로필을 만들어야 해요" in page and 'method="post"' in page
     assert "로그인 정보" in c.get("/privacy").text
+
+
+def test_blocking_cannot_be_dodged_by_changing_ip():
+    """접속자가 X-Forwarded-For로 IP를 바꿔도(서버가 그 값을 믿는 설정), 같은 아이디로 계속 틀리면 막힘"""
+    lim = accounts.LoginLimiter()
+    for i in range(lim.ID_LIMIT):
+        assert not lim.blocked(f"10.0.0.{i}", "victim_id")   # IP가 매번 달라 IP별 규칙에는 안 걸림
+        lim.fail(f"10.0.0.{i}", "victim_id")
+    assert lim.blocked("10.9.9.9", "victim_id")              # 새 IP에서도 막힘
+    assert not lim.blocked("10.9.9.9", "someone_else")       # 다른 아이디는 영향 없음
+
+
+def test_limiter_memory_is_bounded():
+    lim = accounts.LoginLimiter()
+    lim.MAX_KEYS = 100
+    for i in range(1000):
+        lim.fail("1.1.1.1", f"id_{i}")
+    assert len(lim._fails) <= 2 * lim.MAX_KEYS
