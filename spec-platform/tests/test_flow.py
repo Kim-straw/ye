@@ -90,7 +90,7 @@ def test_outside_fallback_and_empty_guide():
     r = client.post("/profile", data={"nickname": "외부", "department_id": dept_id("약학과"), "grade": 1, "admission_year": 2026},
                     follow_redirects=False)
     client.cookies.set("user_id", r.cookies["user_id"])
-    assert "python -m app.rss_import" in client.get("/me").text  # 대외활동이 0개면 안내
+    assert "아직 대외활동이 없어요" in client.get("/me").text  # 대외활동이 0개면 한 줄 안내 (개발자용 명령 문구는 화면에서 뺌)
 
     db = SessionLocal()
     xml = (f'<rss><channel><item><title>시험용 외부 공고</title><link>/bbs/x/9/artclView.do</link>'
@@ -213,4 +213,45 @@ def test_recruit_tab():
     client.cookies.set("user_id", r.cookies["user_id"])
     mine = client.get("/recruit", params={"mine": "true"}).text
     assert "체험형 인턴" in mine and "현장실습 참여" not in mine  # 데이터 분야 학과 -> 데이터 글만
-    assert "현재 탐색 기준" in mine and "전공 제한 없이 모두 보기" in mine
+    assert "기준</p>" in mine and 'aria-pressed="true"' in mine  # 내 기준 한 줄 + '내 전공 관련'이 켜진 표시
+
+
+def test_recruit_sector_and_region():
+    """분야·지역 분류 규칙(제목 키워드 추정)과 /recruit 칩 필터"""
+    from datetime import date
+    from app import logic, rss_import, seed
+    from app.db import Opportunity
+    from app.main import app
+
+    def opp(title, host="career.korea.ac.kr", desc=""):
+        return Opportunity(scope="교내", category="취업", title=title, host=host, description=desc)
+
+    sec = lambda t: logic.recruit_sector(opp(t))
+    assert sec("[롯데그룹] 2026 하반기 LOTTE Job Cafe (~11/24 17:00)") == "사기업"
+    assert sec("[대학내일] 재무/회계 및 총무 신입 채용 (~11/23)") == "사기업"     # '대학'이 들어가도 회사
+    assert sec("[한양대학교] 2027년 1월 직원 채용 (~11/16 10:00)") == "대학·교육"
+    assert sec("[양주시] 2027년 양주시 평생학습관(센터)강사 공개모집") == "공공·공기업"
+    assert sec("[한국인터넷진흥원] 2026 블록체인 진흥주간 (11/25~26)") == "공공·공기업"
+    assert sec("[기아] 26년 엔지니어(생산직) 설비기술인력 채용") == "사기업"
+    assert sec("2027 동계 현장실습학기제 참여 학생 모집") == "기타"                # [기관명] 없음
+
+    reg = lambda t, d="": logic.recruit_region(opp(t, desc=d))
+    assert reg("[논산시의회] 2026년 제4회 논산시의회 지방임기제공무원 채용") == "세종·충청"
+    assert reg("[경기도경제과학진흥원] 시설운영직 채용 공고") == "경기·인천"
+    assert reg("[네이버] 2026 NAVER 동계 인턴십 (~11/23 10:00)") == "지역 미표기"  # 추측해서 채우지 않음
+    assert reg("[교정청] 9급 경력경쟁채용", "접수처: 서울지방교정청") == "서울"    # 제목에 없으면 본문에서
+
+    seed.run()
+    db = SessionLocal(); t = date.today().isoformat()
+    for i, title in enumerate(["[논산시의회] 임기제공무원 채용 공고", "[슈프리마] 2027년 채용연계형 인턴십", "[서원대학교] 직원 신규채용 공고"]):
+        xml = f'<rss><channel><item><title>{title}</title><link>/bbs/cdc/526/{i}/artclView.do</link><pubDate>{t} 09:00:00.0</pubDate></item></channel></rss>'
+        rss_import.save_items(db, rss_import.parse_rss(xml, "https://career.korea.ac.kr"), {"host": "career.korea.ac.kr", "category": "취업"})
+    db.close()
+    client = TestClient(app)
+    public = client.get("/recruit", params={"sector": "공공·공기업"}).text
+    assert "논산시의회" in public and "슈프리마" not in public and "서원대학교" not in public
+    near = client.get("/recruit", params={"region": "세종·충청"}).text
+    assert "논산시의회" in near and "슈프리마" not in near
+    # 칩 링크는 지금 검색어(q)를 유지한 채 분야만 바꿈
+    page = client.get("/recruit", params={"q": "채용"}).text
+    assert "/recruit?q=%EC%B1%84%EC%9A%A9&amp;sector=" in page

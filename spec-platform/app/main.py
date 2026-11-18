@@ -5,6 +5,7 @@
 실행: uvicorn app.main:app --reload   (spec-platform 폴더에서)
 """
 import os
+from urllib.parse import urlencode
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -52,6 +53,7 @@ COOKIE = "user_id"  # 손님 번호표 이름
 
 # ---------- 공통: 쿠키 번호표로 현재 사용자 찾기 ----------
 def current_user(request: Request, db: Session = Depends(get_db)) -> User | None:
+    # [로그인을 붙일 자리] 지금은 서명된 쿠키 번호표로만 사용자를 찾음. 로그인(비밀번호/학교 메일)을 만들면 여기서 세션을 확인하도록 바꿈.
     user_id = security.verify(request.cookies.get(COOKIE))  # 서명이 안 맞는(위조된) 쿠키는 없는 것으로 취급
     return db.get(User, user_id) if user_id is not None else None
 
@@ -85,6 +87,15 @@ def manifest():
 @app.get("/sw.js", include_in_schema=False)
 def service_worker():
     return FileResponse(BASE / "static" / "sw.js", media_type="application/javascript")
+
+
+def make_link(path: str, current: dict):
+    """칩을 누를 때 쓸 주소 만들기: 지금 조건(current)은 그대로 두고 바꾼 값만 덮어씀. 빈 값은 주소에서 뺌.
+    예) 지금 ?q=인턴&sector=사기업 에서 link(region="서울") -> ?q=인턴&sector=사기업&region=서울"""
+    def link(**change):
+        params = {k: v for k, v in {**current, **change}.items() if v}
+        return path + ("?" + urlencode(params) if params else "")
+    return link
 
 
 # ================= 화면 (HTML) =================
@@ -179,22 +190,27 @@ def opportunity_list(request: Request, scope: str = "", category: str = "", show
         query = query.where(logic.open_clause(date.today()))
     items = sorted(db.scalars(query).all(), key=logic.sort_key)
     categories = sorted(set(db.scalars(select(Opportunity.category))))
+    link = make_link("/opportunities", {"scope": scope, "category": category, "show_closed": "true" if show_closed else ""})
     return templates.TemplateResponse(request, "opportunities.html", {
         "user": user, "items": items, "categories": categories,
-        "scope": scope, "category": category, "show_closed": show_closed,
+        "scope": scope, "category": category, "show_closed": show_closed, "link": link,
     })
 
 
 @app.get("/recruit", response_class=HTMLResponse)
-def recruit(request: Request, q: str = "", kind: str = "", mine: bool = False, show_closed: bool = False,
-            db: Session = Depends(get_db), user: User | None = Depends(current_user)):
-    """인턴·채용 칸: 현장실습·취업 공지·공공기관 인턴/채용 공고만 모아서 검색·필터"""
+def recruit(request: Request, q: str = "", kind: str = "", sector: str = "", region: str = "", mine: bool = False,
+            show_closed: bool = False, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    """인턴·채용 칸: 취업·현장실습 공고를 분야·지역 칩으로 걸러 보기"""
     today = date.today()
     items = [o for o in db.scalars(select(Opportunity)).all() if logic.is_recruit(o)]
     if not show_closed:
         items = [o for o in items if logic.is_open(o, today)]
-    if kind:
+    if kind:  # 화면의 선택 칸은 없앴지만 예전 주소(?kind=...)가 깨지지 않게 남겨 둠
         items = [o for o in items if logic.recruit_kind(o) == kind]
+    if sector:
+        items = [o for o in items if logic.recruit_sector(o) == sector]
+    if region:
+        items = [o for o in items if logic.recruit_region(o) == region]
     words = q.strip().lower()
     if words:
         items = [o for o in items if words in f"{o.title} {o.host} {o.description}".lower()]
@@ -205,9 +221,13 @@ def recruit(request: Request, q: str = "", kind: str = "", mine: bool = False, s
     my_tags = []
     if user:
         my_tags = list(dict.fromkeys([t.name for t in user.department.tags] + [t.name for t in user.tags]))[:3]
+    link = make_link("/recruit", {"q": q, "kind": kind, "sector": sector, "region": region,
+                                  "mine": "true" if mine else "", "show_closed": "true" if show_closed else ""})
     return templates.TemplateResponse(request, "recruit.html", {
-        "user": user, "items": items, "q": q, "kind": kind, "mine": mine, "show_closed": show_closed,
-        "kinds": logic.RECRUIT_KINDS, "kind_of": logic.recruit_kind, "my_tags": my_tags,
+        "user": user, "items": items, "q": q, "kind": kind, "sector": sector, "region": region, "mine": mine,
+        "show_closed": show_closed, "my_tags": my_tags, "link": link,
+        "sectors": logic.SECTORS, "regions": logic.REGIONS,
+        "sector_of": logic.recruit_sector, "region_of": logic.recruit_region, "kind_of": logic.recruit_kind,
     })
 
 

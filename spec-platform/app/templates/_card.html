@@ -1,22 +1,23 @@
-{# 활동 카드 한 장. o = Opportunity, reasons = 추천 이유(선택) #}
-<a class="card" href="/opportunities/{{ o.id }}">
-  <div class="card-top">
-    <span class="badge {{ 'in' if o.scope == '교내' else 'out' }}">{{ '교내' if o.scope == '교내' else '대외활동' }}</span>
-    <span class="badge">{{ o.category }}</span>
-    {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% elif o.source == 'manual' %}<span class="badge real">직접 등록</span>{% elif o.source == 'api' %}<span class="badge real">공공데이터</span>{% endif %}
-    {% if o.deadline %}
-      {% set left = (o.deadline - today()).days %}
-      <span class="dday {{ 'urgent' if 0 <= left <= 7 }}">{{ '마감' if left < 0 else ('D-' ~ left) }}</span>
-    {% elif o.posted_at %}
-      <span class="dday">{{ o.posted_at.strftime('%m.%d') if o.posted_at.year == today().year else o.posted_at.strftime('%Y.%m.%d') }} 게시</span>
-    {% endif %}
+{# 목록 한 줄 (모든 목록이 같이 씀).
+   o = Opportunity / reasons = 추천 이유(선택) / show_scope = 교내·대외가 섞인 목록이면 True / meta = 기관명 대신 보여 줄 보조 정보(선택)
+   위계: 제목(크고 굵게) > D-day(오른쪽, 마감 임박만 크림슨) > 보조 정보(작고 연한 회색 한 줄) #}
+{% set parts = [] %}
+{% if show_scope %}{% if parts.append('교내' if o.scope == '교내' else '대외') %}{% endif %}{% endif %}
+{% for m in (meta if meta else [o.host]) %}{% if m %}{% if parts.append(m) %}{% endif %}{% endif %}{% endfor %}
+{% if o.is_sample %}{% if parts.append('샘플') %}{% endif %}{% endif %}
+{# 추천 이유는 '관심 분야 일치'처럼 쓸모 있는 것만 (학교 공지·우리 학교·마감 N일 전은 다른 곳에 이미 보이므로 뺌) #}
+{% set why = [] %}
+{% for r in (reasons or []) %}{% if r not in ['학교 공지', '우리 학교 프로그램'] and not (r.startswith('마감 ') and r.endswith('일 전')) %}{% if why.append(r) %}{% endif %}{% endif %}{% endfor %}
+<a class="item" href="/opportunities/{{ o.id }}">
+  <div class="item-main">
+    <h3 class="item-title">{{ o.title }}</h3>
+    <p class="item-meta">{{ parts | join(' · ') }}</p>
+    {% if why %}<p class="item-why">{{ why | join(' · ') }}</p>{% endif %}
   </div>
-  <h3>{{ o.title }}</h3>
-  <p class="muted small">
-    {{ o.host }}
-    {% if o.difficulty %} · 난이도 {{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }}{% endif %}
-    {% if o.hours %} · 약 {{ o.hours }}시간{% endif %}
-    {% if not o.deadline %} · 마감일은 원문 확인{% endif %}
-  </p>
-  {% if reasons %}<p class="reasons">{{ reasons | join(' · ') }}</p>{% endif %}
+  {% if o.deadline %}
+    {% set left = (o.deadline - today()).days %}
+    <span class="item-dday {{ 'urgent' if 0 <= left <= 7 }}">{{ '마감' if left < 0 else ('D-' ~ left) }}</span>
+  {% elif o.posted_at %}
+    <span class="item-dday">{{ o.posted_at.strftime('%m.%d') if o.posted_at.year == today().year else o.posted_at.strftime('%y.%m.%d') }}</span>
+  {% endif %}
 </a>

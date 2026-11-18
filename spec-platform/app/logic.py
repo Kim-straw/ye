@@ -3,6 +3,7 @@
 DB에서 꺼낸 재료(User, Opportunity, Job)를 받아 계산 결과만 돌려줍니다.
 화면이나 주소(URL)는 모릅니다. 그래서 나중에 앱/웹 어디서든 재사용할 수 있습니다.
 """
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
@@ -55,6 +56,57 @@ def recruit_kind(opp: Opportunity) -> str:
     if "채용" in text:
         return "채용"
     return "취업 공지"
+
+
+# ---------- 분야·지역 분류 (DB에 저장하지 않고 화면에 보여 줄 때 계산) ----------
+# 한계: 제목 맨 앞 [기관명]과 키워드로 추정하는 규칙이라 틀릴 수 있음.
+#  - '공기업'과 '공공기관'은 제목만으로 가를 수 없어 하나(공공·공기업)로 합침
+#  - [한국콜마]처럼 '한국'으로 시작하는 회사는 키워드에 '한국'을 넣지 않아 사기업으로 분류됨(공공 키워드가 없을 때)
+#  - 기관명 없이 올라온 글은 '기타'
+SECTORS = ["공공·공기업", "사기업", "대학·교육", "기타"]
+EDU_WORDS = ("대학교", "대학원", "학교법인", "교육대")
+PUBLIC_WORDS = ("공단", "공사", "공무원", "시청", "군청", "도청", "구청", "의회", "교육청", "교정청", "경찰", "소방",
+                "진흥원", "재단", "연구원", "평생학습관")
+EMPLOYER_RE = re.compile(r"^\s*\[([^\]]+)\]")  # 제목 맨 앞 [기관명]
+LOCAL_GOV_RE = re.compile(r"(시|군|구)$")         # [양주시] 같은 지방자치단체
+
+
+def employer(opp: Opportunity) -> str | None:
+    m = EMPLOYER_RE.match(opp.title)
+    return m.group(1).strip() if m else None
+
+
+def recruit_sector(opp: Opportunity) -> str:
+    name = employer(opp)
+    if not name:
+        return "기타"
+    if any(w in name for w in EDU_WORDS):  # [대학내일]은 '대학교'가 아니므로 여기 안 걸림
+        return "대학·교육"
+    if any(w in name for w in PUBLIC_WORDS) or LOCAL_GOV_RE.search(name):
+        return "공공·공기업"
+    return "사기업"
+
+
+# 세종캠퍼스 학생용이라 세종·충청을 맨 앞에
+REGIONS = ["세종·충청", "서울", "경기·인천", "부산·경남", "대구·경북", "광주·전라", "강원·제주", "지역 미표기"]
+REGION_WORDS = {
+    "세종·충청": ["세종", "충남", "충북", "충청", "대전", "천안", "아산", "논산", "청주", "공주", "서산", "당진", "조치원", "오송"],
+    "서울": ["서울"],
+    "경기·인천": ["경기", "인천", "수원", "성남", "안양", "양주", "과천", "용인", "고양", "부천", "화성", "평택", "파주"],
+    "부산·경남": ["부산", "경남", "울산", "창원", "김해"],
+    "대구·경북": ["대구", "경북", "구미", "포항"],
+    "광주·전라": ["광주", "전남", "전북", "전라", "여수", "전주"],
+    "강원·제주": ["강원", "제주", "춘천", "원주"],
+}
+
+
+def recruit_region(opp: Opportunity) -> str:
+    """제목 → 기관(host) → 본문 순으로 지역 이름을 찾음. 기업 공고는 대부분 지역이 없어 '지역 미표기'(추측해서 채우지 않음)"""
+    for text in (opp.title, opp.host or "", opp.description or ""):
+        for region, words in REGION_WORDS.items():
+            if any(w in text for w in words):
+                return region
+    return "지역 미표기"
 
 
 def user_tag_ids(user: User) -> set[int]:
