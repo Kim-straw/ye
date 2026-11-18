@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import accounts, logic, roadmap, rss_import, security, seed
-from .db import Department, Job, Opportunity, Review, School, Spec, Tag, User, UserSpec, get_db
+from .db import Department, Job, Opportunity, Review, RoadmapEntry, School, Spec, Tag, User, UserSpec, get_db
 
 BASE = Path(__file__).resolve().parent
 
@@ -443,11 +443,13 @@ def privacy(request: Request, user: User | None = Depends(current_user)):
 
 @app.post("/profile/delete")
 def delete_profile(confirm: str = Form(""), db: Session = Depends(get_db), user: User = Depends(require_user)):
-    """내 정보 삭제: 프로필과 내가 쓴 후기를 DB에서 지우고 쿠키도 지움"""
+    """내 정보 삭제: 프로필·로그인 정보·후기·로드맵 기록을 DB에서 지우고 쿠키도 지움"""
     if confirm != "yes":
         raise HTTPException(400, "삭제 확인란에 체크해 주세요")
     for r in db.scalars(select(Review).where(Review.user_id == user.id)).all():
         db.delete(r)
+    for e in db.scalars(select(RoadmapEntry).where(RoadmapEntry.user_id == user.id)).all():
+        db.delete(e)  # 로드맵 기록(체크·뺀 항목·직접 쓴 글)도 지움 (User 연결로도 지워지지만, 빠뜨리지 않게 직접 한 번 더)
     db.delete(user)  # 관심 분야 연결과 보유 스펙도 함께 지워짐
     db.commit()
     resp = RedirectResponse("/?deleted=1", status_code=303)

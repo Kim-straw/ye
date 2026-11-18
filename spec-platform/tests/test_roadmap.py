@@ -170,3 +170,8 @@ def test_startup_creates_table_on_old_db():
     db = SessionLocal()
     assert db.scalars(select(User).where(User.nickname == "옛사용자")).first() is not None
     db.close()
+
+
+def test_privacy_mentions_roadmap():
+    page = TestClient(app).get("/privacy").text
+    assert "<b>로드맵</b>: 체크하거나 뺀 항목, 직접 넣은 항목" in page and "로드맵 기록이 바로 지워집니다" in page
