@@ -7,7 +7,8 @@
 {% if o.is_sample %}{% if parts.append('샘플') %}{% endif %}{% endif %}
 {# 추천 이유는 '관심 분야 일치'처럼 쓸모 있는 것만 (학교 공지·우리 학교·마감 N일 전은 다른 곳에 이미 보이므로 뺌) #}
 {% set why = [] %}
-{% for r in (reasons or []) %}{% if r not in ['학교 공지', '우리 학교 프로그램'] and not (r.startswith('마감 ') and r.endswith('일 전')) %}{% if why.append(r) %}{% endif %}{% endif %}{% endfor %}
+{# '최근 공고'는 섹션 제목의 '최근 순'과 겹쳐서 뺌. 오래된 글의 '원문에서 모집 여부 확인'은 사용자에게 필요해서 남김 #}
+{% for r in (reasons or []) %}{% set r = r[8:] if r.startswith('최근 공고 · ') else r %}{% if r not in ['학교 공지', '우리 학교 프로그램', '최근 공고'] and not (r.startswith('마감 ') and r.endswith('일 전')) %}{% if why.append(r) %}{% endif %}{% endif %}{% endfor %}
 <a class="item" href="/opportunities/{{ o.id }}">
   <div class="item-main">
     <h3 class="item-title">{{ o.title }}</h3>

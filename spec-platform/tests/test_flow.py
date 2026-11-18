@@ -288,3 +288,22 @@ def test_detail_profile_home_follow_feedback():
     form = client.get("/profile/new").text
     assert "<fieldset" not in form and "실명과 학번" not in form and "idcard" not in form
     assert "비공식 학생 프로젝트" in client.get("/").text and 'href="/privacy"' in client.get("/").text
+
+
+def test_recent_label_not_repeated_on_rows():
+    """대외활동이 '최근 순'으로 나올 때 각 줄에 '최근 공고'를 반복하지 않음 (섹션 제목에 이미 있음)"""
+    from datetime import date
+    from app import rss_import, seed
+    from app.main import app
+    seed.run()
+    db = SessionLocal()
+    xml = (f'<rss><channel><item><title>시험용 최근 대외 공고</title><link>/bbs/x/77/artclView.do</link>'
+           f'<pubDate>{date.today()} 09:00:00.0</pubDate></item></channel></rss>')
+    rss_import.save_items(db, rss_import.parse_rss(xml, "https://sejong.korea.ac.kr"),
+                          {"host": "세종캠퍼스 외부기관공고", "category": "외부기관공고", "scope": "외부"})
+    db.close()
+    client = TestClient(app)
+    r = client.post("/profile", data={"nickname": "최근", "department_id": dept_id("약학과"), "grade": 1, "admission_year": 2026}, follow_redirects=False)
+    client.cookies.set("user_id", r.cookies["user_id"])
+    page = client.get("/me").text
+    assert "시험용 최근 대외 공고" in page and "최근 순" in page and 'class="item-why">최근 공고' not in page
