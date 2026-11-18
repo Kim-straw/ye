@@ -12,6 +12,12 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/progress.js" defer></script>
+  <script>
+    // 화면 전환 효과가 건너뛰어질 때(서버 응답이 느린 경우 등) 브라우저가 내는 '처리되지 않은 오류'를 받아 줌.
+    // 전환만 생략되고 화면은 정상으로 바뀌므로 오류로 남길 필요가 없음. 새 화면이 그려지기 전에 붙여야 해서 여기(head)에 둠
+    addEventListener("pagereveal", function (e) { if (e.viewTransition) { e.viewTransition.ready.catch(function () {}); e.viewTransition.finished.catch(function () {}); } });
+    addEventListener("pageswap", function (e) { if (e.viewTransition) { e.viewTransition.finished.catch(function () {}); } });
+  </script>
 </head>
 <body>
   <header class="topbar">
