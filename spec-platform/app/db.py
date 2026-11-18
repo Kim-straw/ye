@@ -4,10 +4,10 @@
 """
 import os
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
-from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table, Text, Boolean, create_engine, inspect, text
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text, Boolean, UniqueConstraint, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 # 환경변수 SPEC_DB가 있으면 그 파일을 씀 (테스트가 실제 DB를 지우지 않도록 따로 쓰기 위함)
@@ -117,6 +117,8 @@ class User(Base):
     department: Mapped[Department] = relationship()
     tags: Mapped[list[Tag]] = relationship(secondary=user_tags)
     specs: Mapped[list["UserSpec"]] = relationship(cascade="all, delete-orphan")
+    # 로드맵 기록 (칸이 아니라 '연결'이라 users 테이블 구조는 그대로). 사용자를 지우면 같이 지워짐
+    roadmap: Mapped[list["RoadmapEntry"]] = relationship(cascade="all, delete-orphan")
 
 
 class UserSpec(Base):
@@ -148,6 +150,22 @@ class Opportunity(Base):
     tags: Mapped[list[Tag]] = relationship(secondary=opportunity_tags)
     specs: Mapped[list[Spec]] = relationship(secondary=opportunity_specs)
     reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan", order_by="Review.id.desc()")
+
+
+class RoadmapEntry(Base):
+    """로드맵에서 사용자가 바꾼 것만 저장 (새 테이블).
+    - 원본 항목(roadmap_data.py)을 체크하거나 뺐을 때: item_key = 원본 key, text 비움
+    - 직접 넣은 항목: item_key = 'custom:무작위', text = 사용자가 쓴 글(최대 60자)
+    아무것도 안 바꾼 원본 항목은 행이 없음 (화면에 보일 때 코드 목록에서 계산)"""
+    __tablename__ = "roadmap_entries"
+    __table_args__ = (UniqueConstraint("user_id", "item_key", name="uq_roadmap_user_item"),)  # 같은 사람·같은 항목은 한 줄만
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    item_key: Mapped[str] = mapped_column(String(40))
+    text: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 
 class Review(Base):
