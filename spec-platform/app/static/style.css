@@ -54,7 +54,7 @@ h3 { font-size: 1rem; margin: .35rem 0 .1rem; line-height: 1.4; }
 .brand { flex: none; color: var(--brand-ink); text-decoration: none; display: flex; flex-direction: column; line-height: 1.1; }
 .brand b { font-family: var(--head); font-weight: 800; font-size: 1.45rem; letter-spacing: -0.04em; }
 .brand span { font-size: .66rem; font-weight: 500; letter-spacing: .1em; color: var(--brand-ink); white-space: nowrap; }
-.who { font-size: .76rem; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.who { text-decoration: none; font-size: .76rem; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .page { max-width: 600px; margin: 0 auto; padding: 1.5rem 20px 6.5rem; }
 .legal { margin-top: 3rem; font-size: .72rem; color: var(--muted); text-align: center; }
 
@@ -128,7 +128,7 @@ a.card:hover { border-color: var(--brand-ink); }
 /* ---------- 입력 양식 ---------- */
 .form { display: grid; gap: 1.2rem; }
 .form label.field { display: grid; gap: .35rem; font-size: var(--fs-meta); font-weight: 500; color: var(--muted); }
-input[type=text], input[type=number], select, textarea {
+input[type=text], input[type=number], input[type=password], select, textarea {
   width: 100%; min-height: 46px; padding: .5rem .8rem; font: inherit; font-size: .92rem; font-weight: 400;
   color: var(--text); background: var(--panel); border: 0; border-radius: 10px;
 }
@@ -243,3 +243,11 @@ a.item:active { background: var(--panel); }
 a.item:hover .item-title { color: var(--brand-ink); }
 
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- 로그인·입력 오류 ---------- */
+.form-error { margin: 0; padding: .6rem .8rem; border-radius: 10px; background: var(--brand-soft); color: var(--brand-ink); font-size: .85rem; font-weight: 700; }
+.row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.who.login { color: var(--brand-ink); font-weight: 700; font-size: .85rem; }
+.fine.center { text-align: center; }
+/* 개인정보 안내: 소제목 사이 간격만 넓힘 (내용은 줄이지 않음) */
+h2.sec-title { margin-top: var(--gap-sec); }

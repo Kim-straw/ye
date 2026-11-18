@@ -7,7 +7,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table, Text, Boolean, create_engine
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Table, Text, Boolean, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 # 환경변수 SPEC_DB가 있으면 그 파일을 씀 (테스트가 실제 DB를 지우지 않도록 따로 쓰기 위함)
@@ -111,6 +111,9 @@ class User(Base):
     admission_year: Mapped[int] = mapped_column(Integer)  # 입학년도 (학번 전체는 받지 않음)
     gpa: Mapped[float | None] = mapped_column(Float, nullable=True)
     mileage: Mapped[int] = mapped_column(Integer, default=0)  # 6단계용 자리만 마련
+    # 로그인용 (비어 있으면 예전처럼 쿠키로만 쓰는 사용자). 비밀번호 원문은 저장하지 않고 해시만 저장
+    login_id: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)
     department: Mapped[Department] = relationship()
     tags: Mapped[list[Tag]] = relationship(secondary=user_tags)
     specs: Mapped[list["UserSpec"]] = relationship(cascade="all, delete-orphan")
@@ -194,3 +197,21 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(engine)
+    migrate_users(engine)
+
+
+def migrate_users(eng) -> list[str]:
+    """이미 있는 users 테이블에 로그인 칸 2개를 추가 (create_all은 기존 테이블에 칸을 추가하지 않기 때문).
+    칸이 이미 있으면 아무것도 하지 않음(여러 번 돌려도 안전). SQLite·Postgres 공통 문법만 씀. 추가한 칸 이름을 돌려줌."""
+    names = {c["name"] for c in inspect(eng).get_columns("users")}
+    added = []
+    with eng.begin() as conn:  # begin: 모두 성공하면 저장, 하나라도 실패하면 되돌림
+        if "login_id" not in names:
+            conn.execute(text("ALTER TABLE users ADD COLUMN login_id VARCHAR(20)"))
+            added.append("login_id")
+        if "password_hash" not in names:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(200)"))
+            added.append("password_hash")
+        # 같은 아이디가 두 번 저장되지 않게 하는 색인 (빈 값 NULL은 여러 개여도 됨). 새 DB는 create_all이 같은 이름으로 이미 만듦
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_login_id ON users (login_id)"))
+    return added

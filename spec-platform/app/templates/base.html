@@ -15,7 +15,7 @@
 <body>
   <header class="topbar">
     <a href="/" class="brand"><b>스펙로드</b><span>고려대학교 세종캠퍼스</span></a>
-    {% if user %}<span class="who">{{ user.nickname }} · {{ user.department.name }}</span>{% endif %}
+    {% if user %}<a class="who" href="/profile/new">{{ user.nickname }} · {{ user.department.name }}</a>{% else %}<a class="who login" href="/login">로그인</a>{% endif %}
   </header>
 
   <main class="page">

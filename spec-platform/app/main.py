@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import logic, rss_import, security, seed
+from . import accounts, logic, rss_import, security, seed
 from .db import Department, Job, Opportunity, Review, School, Spec, Tag, User, UserSpec, get_db, init_db
 
 BASE = Path(__file__).resolve().parent
@@ -109,16 +109,31 @@ def home(request: Request, db: Session = Depends(get_db), user: User | None = De
     return templates.TemplateResponse(request, "home.html", {"user": user, "recent": recent})
 
 
-@app.get("/profile/new", response_class=HTMLResponse)
-def profile_form(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+def render_profile(request: Request, db: Session, user: User | None, error: str = "", prefill: dict | None = None,
+                   account_error: str = "", status: int = 200):
+    """프로필 화면. 저장에 실패하면 입력한 값(prefill)을 그대로 채운 채 오류 한 줄과 함께 다시 보여 줌"""
+    prefill = prefill or {}
     return templates.TemplateResponse(request, "profile.html", {
-        "user": user,
+        "user": user, "error": error, "account_error": account_error, "pf": prefill,
         "departments": db.scalars(select(Department).order_by(Department.id)).all(),
         "tags": db.scalars(select(Tag)).all(),
         "specs": db.scalars(select(Spec).order_by(Spec.kind, Spec.id)).all(),
         "owned": {us.spec_id: us.value for us in user.specs} if user else {},
-        "my_tags": {t.id for t in user.tags} if user else set(),
-    })
+        "my_tags": {t.id for t in user.tags} if user else set(prefill.get("tag_ids", [])),
+    }, status_code=status)
+
+
+def login_response(request: Request, user: User, to: str = "/me") -> RedirectResponse:
+    """로그인 상태로 만들기: 서명한 번호표 쿠키를 심고 이동 (프로필 저장·로그인이 같이 씀)"""
+    resp = RedirectResponse(to, status_code=303)  # 303: "처리했으니 이 주소로 다시 가세요"
+    https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"  # 인터넷(https)에서는 https로만 쿠키를 보냄
+    resp.set_cookie(COOKIE, security.sign(user.id), max_age=60 * 60 * 24 * 180, httponly=True, samesite="lax", secure=https)
+    return resp
+
+
+@app.get("/profile/new", response_class=HTMLResponse)
+def profile_form(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    return render_profile(request, db, user)
 
 
 @app.post("/profile")
@@ -129,10 +144,25 @@ async def save_profile(
     grade: int = Form(..., ge=1, le=6),
     admission_year: int = Form(..., ge=2000, le=2100),
     gpa: str = Form(""),
+    login_id: str = Form(""),
+    password: str = Form(""),
+    password2: str = Form(""),
     db: Session = Depends(get_db),
     user: User | None = Depends(current_user),
 ):
     form = await request.form()  # 체크박스처럼 여러 값이 오는 칸은 직접 꺼냄
+    new_login = None
+    if user is None and (login_id or password):
+        # 새 사용자의 아이디·비밀번호: 화면에서는 필수. 서버는 값이 왔을 때만 검사함
+        # (값 없이 오면 예전처럼 쿠키로만 쓰는 프로필이 되어, 기존 API·테스트가 그대로 동작)
+        new_login = accounts.normalize_login_id(login_id)
+        problem = accounts.account_error(new_login, password, password2)
+        if problem is None and db.scalar(select(User.id).where(User.login_id == new_login)) is not None:
+            problem = "이미 쓰는 아이디예요"
+        if problem:
+            prefill = {"nickname": nickname, "department_id": department_id, "grade": grade, "admission_year": admission_year,
+                       "gpa": gpa, "login_id": new_login, "tag_ids": {int(t) for t in form.getlist("tag_ids")}}
+            return render_profile(request, db, None, error=problem, prefill=prefill, status=400)
     dept = db.get(Department, department_id)
     if dept is None:
         raise HTTPException(400, "학과를 다시 선택해 주세요")
@@ -143,6 +173,8 @@ async def save_profile(
     if user is None:
         user = User(school_id=dept.school_id, department_id=dept.id, nickname=nickname,
                     grade=grade, admission_year=admission_year, gpa=gpa_value)
+        if new_login:
+            user.login_id, user.password_hash = new_login, accounts.hash_password(password)
         db.add(user)
     else:
         user.school_id, user.department_id = dept.school_id, dept.id
@@ -157,11 +189,51 @@ async def save_profile(
         score = str(form.get(f"score_{spec_id}", "")).strip()
         user.specs.append(UserSpec(spec_id=int(spec_id), value=float(score) if score else None))
     db.commit()
+    return login_response(request, user)
 
-    resp = RedirectResponse("/me", status_code=303)  # 303: "저장했으니 이 주소로 다시 가세요"
-    https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"  # 인터넷(https)에서는 https로만 쿠키를 보냄
-    resp.set_cookie(COOKIE, security.sign(user.id), max_age=60 * 60 * 24 * 180, httponly=True, samesite="lax", secure=https)
-    return resp
+
+# ---------- 로그인: 같은 프로필을 다른 기기에서도 다시 열기 ----------
+LOGIN_FAIL = "아이디 또는 비밀번호가 맞지 않아요"  # 아이디가 없는지, 비밀번호가 틀렸는지 알려 주지 않음
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form(request: Request, user: User | None = Depends(current_user)):
+    if user is not None and user.login_id:
+        return RedirectResponse("/me", status_code=303)
+    return templates.TemplateResponse(request, "login.html", {"user": user, "error": "", "login_id": ""})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login(request: Request, login_id: str = Form(""), password: str = Form(""), db: Session = Depends(get_db)):
+    lid = accounts.normalize_login_id(login_id)
+    ip = request.client.host if request.client else "?"
+    def fail(msg, status):
+        return templates.TemplateResponse(request, "login.html", {"user": None, "error": msg, "login_id": lid}, status_code=status)
+    if accounts.limiter.blocked(ip, lid):
+        return fail("잠시 후 다시 시도해 주세요", 429)
+    found = db.scalars(select(User).where(User.login_id == lid)).first() if lid else None
+    if not accounts.check_login(password, found.password_hash if found else None):
+        accounts.limiter.fail(ip, lid)
+        return fail(LOGIN_FAIL, 401)
+    accounts.limiter.reset(ip, lid)
+    return login_response(request, found)
+
+
+@app.post("/account", response_class=HTMLResponse)
+def create_account(request: Request, login_id: str = Form(""), password: str = Form(""), password2: str = Form(""),
+                   db: Session = Depends(get_db), user: User = Depends(require_user)):
+    """쿠키로만 쓰던 기존 사용자가 아이디·비밀번호를 연결"""
+    if user.login_id:
+        return render_profile(request, db, user, account_error="이미 로그인 정보가 있어요", status=400)
+    lid = accounts.normalize_login_id(login_id)
+    problem = accounts.account_error(lid, password, password2)
+    if problem is None and db.scalar(select(User.id).where(User.login_id == lid)) is not None:
+        problem = "이미 쓰는 아이디예요"
+    if problem:
+        return render_profile(request, db, user, account_error=problem, prefill={"login_id": lid}, status=400)
+    user.login_id, user.password_hash = lid, accounts.hash_password(password)
+    db.commit()
+    return RedirectResponse("/profile/new?account=1", status_code=303)
 
 
 @app.get("/me", response_class=HTMLResponse)

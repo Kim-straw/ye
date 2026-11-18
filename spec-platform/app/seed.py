@@ -10,7 +10,7 @@
 from sqlalchemy import select
 
 from . import rss_import
-from .db import Base, Department, Job, JobRequirement, School, SessionLocal, Spec, Tag, engine
+from .db import Base, Department, Job, JobRequirement, School, SessionLocal, Spec, Tag, engine, migrate_users
 
 TAGS = ["개발", "데이터", "AI", "마케팅", "경영", "글쓰기", "디자인", "창업", "공공", "봉사", "어학", "상담", "리더십", "영상",
         # 아래는 세종캠퍼스 학과에 맞춰 추가한 분야 (앞의 순서는 바꾸지 말 것: 테스트와 화면이 번호에 기대고 있음)
@@ -135,6 +135,12 @@ def ensure() -> bool:
     """서버가 켜질 때 부르는 안전한 버전: 테이블이 없으면 만들고, DB가 비어 있을 때만 기본 데이터를 채움.
     이미 데이터가 있으면 아무것도 지우지 않음. 새로 채웠으면 True."""
     Base.metadata.create_all(engine)
+    try:
+        added = migrate_users(engine)
+        if added:
+            print(f"[DB 정리] users 테이블에 칸 추가: {', '.join(added)}")
+    except Exception as e:  # 실패해도 서버는 켜지게. DB 주소·비밀번호가 담길 수 있는 오류 문구 대신 종류만 남김
+        print(f"[DB 정리 실패] {type(e).__name__}")
     db = SessionLocal()
     try:
         if db.scalars(select(School)).first() is None:
