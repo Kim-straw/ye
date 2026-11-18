@@ -251,3 +251,22 @@ a.item:hover .item-title { color: var(--brand-ink); }
 .fine.center { text-align: center; }
 /* 개인정보 안내: 소제목 사이 간격만 넓힘 (내용은 줄이지 않음) */
 h2.sec-title { margin-top: var(--gap-sec); }
+
+/* ---------- 2단계 카테고리 바 (상위를 누르면 아래 줄에 하위) ----------
+   칩(.chips-x)과 달리 박스 없이 글자 + 밑줄만. 상위는 크고 굵게, 하위는 작고 회색 */
+.catbar { margin: -.4rem -20px 1rem; border-bottom: 1px solid var(--line); }
+.catbar-top, .catbar-sub {
+  display: flex; gap: 1.2rem; overflow-x: auto; padding: 0 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.catbar-top::-webkit-scrollbar, .catbar-sub::-webkit-scrollbar { display: none; }
+.catbar a {
+  flex: none; display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; text-decoration: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.catbar-top a { font-family: var(--head); font-size: 1.08rem; font-weight: 800; letter-spacing: -0.02em; color: var(--muted); }
+.catbar-top a.on { color: var(--brand-ink); border-bottom-color: var(--brand); }
+.catbar-sub { gap: 1rem; border-top: 1px solid var(--line); }
+.catbar-sub a { font-size: .88rem; color: var(--muted); min-height: 42px; }
+.catbar-sub a.on { color: var(--brand-ink); font-weight: 700; border-bottom-color: var(--brand); }
+.catbar-top:has(+ .catbar-sub) a.on { border-bottom-color: transparent; }  /* 하위 줄이 있으면 상위 밑줄은 하위 줄에 맡김 (선 두 개 겹침 방지) */
+.toggles .count { margin-left: auto; align-self: center; }

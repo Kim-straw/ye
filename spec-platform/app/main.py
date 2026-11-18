@@ -99,6 +99,26 @@ def make_link(path: str, current: dict):
     return link
 
 
+# 상위 카테고리: (이름, 주소, 이 화면이 해당하는지 판단할 열쇠)
+TOP_CATEGORIES = [("전체", "/opportunities", {}, "all"), ("교내", "/opportunities", {"scope": "교내"}, "교내"),
+                  ("대외활동", "/opportunities", {"scope": "외부"}, "외부"), ("인턴·채용", "/recruit", {}, "recruit")]
+
+
+def build_catbar(active: str, show_closed: bool, sub_names: list[str], sub_selected: str, sub_link) -> dict:
+    """2단계 카테고리 바에 그릴 내용만 계산 (템플릿은 그리기만 함).
+    active: 지금 화면의 상위 열쇠 / sub_names: 하위 이름들(전체 제외) / sub_link: 하위 값 하나만 바꾼 주소를 돌려주는 함수
+    - 상위 링크는 show_closed만 가져감 (다른 화면으로 가면 하위 선택은 처음부터)
+    - 하위가 0~1개면 '전체'와 똑같은 목록이라 하위 줄을 그리지 않음"""
+    keep = {"show_closed": "true"} if show_closed else {}
+    top = [{"name": name, "href": make_link(path, {**params, **keep})(), "on": key == active}
+           for name, path, params, key in TOP_CATEGORIES]
+    sub = []
+    if len(sub_names) > 1:
+        sub = [{"name": "전체", "href": sub_link(""), "on": not sub_selected}]
+        sub += [{"name": n, "href": sub_link(n), "on": n == sub_selected} for n in sub_names]
+    return {"top": top, "sub": sub}
+
+
 # ================= 화면 (HTML) =================
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
@@ -262,11 +282,13 @@ def opportunity_list(request: Request, scope: str = "", category: str = "", show
     if not show_closed:
         query = query.where(logic.open_clause(date.today()))
     items = sorted(db.scalars(query).all(), key=logic.sort_key)
-    categories = sorted(set(db.scalars(select(Opportunity.category))))
     link = make_link("/opportunities", {"scope": scope, "category": category, "show_closed": "true" if show_closed else ""})
+    # 하위 분류는 DB에 실제로 있는 분류 이름만 (교내·대외활동 각각). '전체'(scope 없음)에는 하위 줄이 없음
+    sub_names = sorted(set(db.scalars(select(Opportunity.category).where(Opportunity.scope == scope)))) if scope else []
+    catbar = build_catbar(scope or "all", show_closed, sub_names, category, lambda v: link(category=v))
     return templates.TemplateResponse(request, "opportunities.html", {
-        "user": user, "items": items, "categories": categories,
-        "scope": scope, "category": category, "show_closed": show_closed, "link": link,
+        "user": user, "items": items, "scope": scope, "category": category, "show_closed": show_closed,
+        "link": link, "catbar": catbar,
     })
 
 
@@ -296,9 +318,10 @@ def recruit(request: Request, q: str = "", kind: str = "", sector: str = "", reg
         my_tags = list(dict.fromkeys([t.name for t in user.department.tags] + [t.name for t in user.tags]))[:3]
     link = make_link("/recruit", {"q": q, "kind": kind, "sector": sector, "region": region,
                                   "mine": "true" if mine else "", "show_closed": "true" if show_closed else ""})
+    catbar = build_catbar("recruit", show_closed, logic.SECTORS, sector, lambda v: link(sector=v))
     return templates.TemplateResponse(request, "recruit.html", {
         "user": user, "items": items, "q": q, "kind": kind, "sector": sector, "region": region, "mine": mine,
-        "show_closed": show_closed, "my_tags": my_tags, "link": link,
+        "show_closed": show_closed, "my_tags": my_tags, "link": link, "catbar": catbar,
         "sectors": logic.SECTORS, "regions": logic.REGIONS,
         "sector_of": logic.recruit_sector, "region_of": logic.recruit_region, "kind_of": logic.recruit_kind,
     })

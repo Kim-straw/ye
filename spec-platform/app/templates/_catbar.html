@@ -1,0 +1,11 @@
+{# 2단계 카테고리 바: 상위를 누르면 바로 아래 줄에 그 상위의 하위 분류가 뜸. 계산은 main.py build_catbar, 여기서는 그리기만 #}
+<nav class="catbar" aria-label="분류">
+  <div class="catbar-top">
+    {% for c in catbar.top %}<a href="{{ c.href }}" class="{{ 'on' if c.on }}" {{ 'aria-current=page' if c.on }}>{{ c.name }}</a>{% endfor %}
+  </div>
+  {% if catbar.sub %}
+  <div class="catbar-sub">
+    {% for c in catbar.sub %}<a href="{{ c.href }}" class="{{ 'on' if c.on }}" {{ 'aria-current=true' if c.on }}>{{ c.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</nav>

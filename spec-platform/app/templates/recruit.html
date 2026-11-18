@@ -1,10 +1,8 @@
 {% extends "base.html" %}
 {% block title %}인턴·채용 · 스펙로드{% endblock %}
 {% block content %}
-<header class="head">
-  <h1>인턴·채용</h1>
-  <span class="count">{{ items | length }}건</span>
-</header>
+<h1 class="sr">인턴·채용</h1>
+{% include "_catbar.html" %}
 
 <form class="searchbar" method="get" action="/recruit" role="search">
   {% for k, v in [('sector', sector), ('region', region), ('kind', kind), ('mine', 'true' if mine else ''), ('show_closed', 'true' if show_closed else '')] %}
@@ -17,10 +15,6 @@
   </label>
 </form>
 
-<nav class="chips-x" aria-label="분야">
-  <a href="{{ link(sector='') }}" class="{{ 'on' if not sector }}" {{ 'aria-current=true' if not sector }}>전체</a>
-  {% for s in sectors %}<a href="{{ link(sector=s) }}" class="{{ 'on' if sector == s }}" {{ 'aria-current=true' if sector == s }}>{{ s }}</a>{% endfor %}
-</nav>
 <nav class="chips-x" aria-label="지역">
   <a href="{{ link(region='') }}" class="{{ 'on' if not region }}" {{ 'aria-current=true' if not region }}>전체 지역</a>
   {% for r in regions %}<a href="{{ link(region=r) }}" class="{{ 'on' if region == r }}" {{ 'aria-current=true' if region == r }}>{{ r }}</a>{% endfor %}
@@ -28,6 +22,7 @@
 <div class="toggles">
   {% if user %}<a class="toggle {{ 'on' if mine }}" href="{{ link(mine='' if mine else 'true') }}" aria-pressed="{{ 'true' if mine else 'false' }}">내 전공 관련</a>{% endif %}
   <a class="toggle {{ 'on' if show_closed }}" href="{{ link(show_closed='' if show_closed else 'true') }}" aria-pressed="{{ 'true' if show_closed else 'false' }}">마감·지난 공고 포함</a>
+  <span class="count">{{ items | length }}건</span>
 </div>
 {% if user and mine %}<p class="hint">{{ user.department.name }} · {{ my_tags | join(', ') if my_tags else '관심 분야 없음' }} 기준</p>{% endif %}
 

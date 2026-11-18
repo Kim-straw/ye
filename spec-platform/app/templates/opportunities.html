@@ -1,22 +1,12 @@
 {% extends "base.html" %}
 {% block title %}활동 · 스펙로드{% endblock %}
 {% block content %}
-<header class="head">
-  <h1>활동</h1>
-  <span class="count">{{ items | length }}개</span>
-</header>
-
-<nav class="chips-x" aria-label="구분">
-  {% for value, label in [('', '전체'), ('교내', '교내'), ('외부', '대외활동')] %}
-    <a href="{{ link(scope=value) }}" class="{{ 'on' if scope == value }}" {{ 'aria-current=true' if scope == value }}>{{ label }}</a>
-  {% endfor %}
-</nav>
-<nav class="chips-x" aria-label="분류">
-  <a href="{{ link(category='') }}" class="{{ 'on' if not category }}" {{ 'aria-current=true' if not category }}>전체 분류</a>
-  {% for c in categories %}<a href="{{ link(category=c) }}" class="{{ 'on' if category == c }}" {{ 'aria-current=true' if category == c }}>{{ c }}</a>{% endfor %}
-</nav>
+{# 페이지 제목은 카테고리 바의 선택 항목이 대신함 (같은 말을 두 번 크게 보여 주지 않도록 제목은 화면 읽기 프로그램용으로만) #}
+<h1 class="sr">활동</h1>
+{% include "_catbar.html" %}
 <div class="toggles">
   <a class="toggle {{ 'on' if show_closed }}" href="{{ link(show_closed='' if show_closed else 'true') }}" aria-pressed="{{ 'true' if show_closed else 'false' }}">마감·지난 공지 포함</a>
+  <span class="count">{{ items | length }}개</span>
 </div>
 
 <div class="list">
