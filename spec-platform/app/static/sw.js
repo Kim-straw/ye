@@ -2,7 +2,7 @@
 // 화면 뼈대(CSS, 아이콘)는 폰에 저장해 두고, 데이터 페이지는 항상 서버에서 새로 받음.
 // 인터넷이 끊기면 '오프라인' 안내를 보여 줌.
 const CACHE = "specroad-v11";
-const SHELL = ["/static/style.css", "/static/icon.svg", "/static/icon-192.png"];
+const SHELL = ["/static/style.css", "/static/progress.js", "/static/icon.svg", "/static/icon-192.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

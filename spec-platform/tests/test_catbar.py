@@ -81,3 +81,14 @@ def test_old_urls_still_work():
     assert r.status_code == 200 and "시험 대외 공고 A" in r.text
     assert "시험 대외 공고 A" not in c.get("/opportunities", params={"scope": "외부", "category": "외부기관공고"}).text  # 오래된 글은 기본 목록에서 빠짐
     assert c.get("/recruit", params={"kind": "인턴", "mine": "true"}).status_code == 200
+
+
+def test_progress_script_is_loaded_and_served():
+    c = TestClient(app)
+    html = c.get("/").text
+    assert '<script src="/static/progress.js" defer></script>' in html
+    js = c.get("/static/progress.js")
+    assert js.status_code == 200 and "loadbar" in js.text
+    assert ".value" not in js.text and "password" not in js.text.lower()  # 입력값을 읽지 않음
+    sw = c.get("/sw.js").text
+    assert "specroad-v11" in sw and "/static/progress.js" in sw

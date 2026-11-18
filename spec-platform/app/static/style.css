@@ -270,3 +270,13 @@ h2.sec-title { margin-top: var(--gap-sec); }
 .catbar-sub a.on { color: var(--brand-ink); font-weight: 700; border-bottom-color: var(--brand); }
 .catbar-top:has(+ .catbar-sub) a.on { border-bottom-color: transparent; }  /* 하위 줄이 있으면 상위 밑줄은 하위 줄에 맡김 (선 두 개 겹침 방지) */
 .toggles .count { margin-left: auto; align-self: center; }
+
+/* ---------- 페이지 이동 진행 막대 (progress.js가 만듦) ----------
+   화면 맨 위 고정 3px 크림슨 줄. 평소에는 안 보이고, 이동 중일 때만 차오름 */
+.loadbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 20; pointer-events: none;
+  background: var(--brand); transform: scaleX(0); transform-origin: 0 50%; opacity: 0;
+  transition: transform .25s ease-out, opacity .2s ease;
+}
+.loadbar.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .loadbar { transition: none; } }
