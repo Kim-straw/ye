@@ -109,6 +109,15 @@ def recruit_region(opp: Opportunity) -> str:
     return "지역 미표기"
 
 
+def display_host(opp: Opportunity) -> str:
+    """목록·상세의 보조줄에 보여 줄 '어디서 나온 글인지'.
+    기관명이 사이트 주소(career.korea.ac.kr 처럼 점이 있고 공백 없는 글자)면 사용자에게 의미가 없어서 종류(category)로 대신함."""
+    host = (opp.host or "").strip()
+    if not host or (" " not in host and "." in host):
+        return opp.category or ""
+    return host
+
+
 def user_tag_ids(user: User) -> set[int]:
     """내 관심 태그 + 내 학과의 기본 태그"""
     return {t.id for t in user.tags} | {t.id for t in user.department.tags}

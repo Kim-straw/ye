@@ -47,6 +47,7 @@ app = FastAPI(title="스펙로드 API", description="고려대 세종 스펙·�
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=BASE / "templates")
 templates.env.globals["today"] = date.today
+templates.env.globals["display_host"] = logic.display_host
 
 COOKIE = "user_id"  # 손님 번호표 이름
 

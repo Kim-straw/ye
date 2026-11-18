@@ -14,7 +14,7 @@
   <h2>최근 학교 공지 <a class="more" href="/opportunities">전체</a></h2>
   <div class="list">
   {% for o in recent %}
-    {% with reasons = none, show_scope = true, meta = none %}{% include "_card.html" %}{% endwith %}
+    {% with reasons = none, show_scope = false, meta = none %}{% include "_card.html" %}{% endwith %}
   {% else %}
     <p class="empty">아직 가져온 공지가 없어요</p>
   {% endfor %}

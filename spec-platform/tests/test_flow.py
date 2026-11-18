@@ -255,3 +255,36 @@ def test_recruit_sector_and_region():
     # 칩 링크는 지금 검색어(q)를 유지한 채 분야만 바꿈
     page = client.get("/recruit", params={"q": "채용"}).text
     assert "/recruit?q=%EC%B1%84%EC%9A%A9&amp;sector=" in page
+
+
+def test_detail_profile_home_follow_feedback():
+    """상세·프로필·홈: 사이트 주소·빈 칸·내부 점수·설명 문장이 화면에 없어야 함 (값이 있을 때만 보여 줌)"""
+    from datetime import date, timedelta
+    from app import logic, seed
+    from app.db import Opportunity
+    from app.main import app
+    seed.run()
+    db = SessionLocal()
+    plain = Opportunity(scope="교내", category="취업", title="[슈프리마] 인턴십 (~11/30)", host="career.korea.ac.kr", source="rss",
+                        url="https://career.korea.ac.kr/x/1", posted_at=date.today())
+    rich = Opportunity(scope="외부", category="공모전", title="시험용 데이터 공모전", host="시험주관", source="manual", url="https://example.org/c",
+                       difficulty=3, hours=8, deadline=date.today() + timedelta(days=3), posted_at=date.today())
+    db.add_all([plain, rich]); db.commit()
+    pid, rid = plain.id, rich.id
+    # 사이트 주소는 종류로 바뀌고, 한글 기관명은 그대로
+    assert logic.display_host(plain) == "취업"
+    assert logic.display_host(Opportunity(category="교내행사", host="세종캠퍼스 교내행사공지")) == "세종캠퍼스 교내행사공지"
+    db.close()
+
+    client = TestClient(app)
+    home = client.get("/").text
+    assert "career.korea.ac.kr" not in home.split("최근 학교 공지")[1] and "교내 ·" not in home
+    p = client.get(f"/opportunities/{pid}").text
+    for gone in ("정보 없음", "추천 이유", "아직 없음", "난이도", "소요시간", "학교 공지", "career.korea.ac.kr</p>"):
+        assert gone not in p, gone
+    assert "마감일은 원문에서 확인하세요" in p and "원문 공고 보기" in p
+    r = client.get(f"/opportunities/{rid}").text
+    assert "D-3" in r and "난이도 ●●●○○" in r and "약 8시간" in r      # 값이 있으면 보임
+    form = client.get("/profile/new").text
+    assert "<fieldset" not in form and "실명과 학번" not in form and "idcard" not in form
+    assert "비공식 학생 프로젝트" in client.get("/").text and 'href="/privacy"' in client.get("/").text

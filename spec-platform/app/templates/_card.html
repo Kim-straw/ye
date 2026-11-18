@@ -3,7 +3,7 @@
    위계: 제목(크고 굵게) > D-day(오른쪽, 마감 임박만 크림슨) > 보조 정보(작고 연한 회색 한 줄) #}
 {% set parts = [] %}
 {% if show_scope %}{% if parts.append('교내' if o.scope == '교내' else '대외') %}{% endif %}{% endif %}
-{% for m in (meta if meta else [o.host]) %}{% if m %}{% if parts.append(m) %}{% endif %}{% endif %}{% endfor %}
+{% for m in (meta if meta else [display_host(o)]) %}{% if m %}{% if parts.append(m) %}{% endif %}{% endif %}{% endfor %}
 {% if o.is_sample %}{% if parts.append('샘플') %}{% endif %}{% endif %}
 {# 추천 이유는 '관심 분야 일치'처럼 쓸모 있는 것만 (학교 공지·우리 학교·마감 N일 전은 다른 곳에 이미 보이므로 뺌) #}
 {% set why = [] %}

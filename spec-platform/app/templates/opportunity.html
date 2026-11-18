@@ -1,43 +1,48 @@
 {% extends "base.html" %}
 {% block title %}{{ o.title }} · 스펙로드{% endblock %}
 {% block content %}
+{# 위계: 제목 > 마감(크게) > 원문 버튼 > 본문 > 보조 정보 > 후기. 값이 없는 칸("정보 없음")은 만들지 않음 #}
 <a class="back" href="/opportunities">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>활동 목록</a>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>활동</a>
 
-<div class="card-top">
-  <span class="badge {{ 'in' if o.scope == '교내' else 'out' }}">{{ '교내' if o.scope == '교내' else '대외활동' }}</span>
-  <span class="badge">{{ o.category }}</span>
-  {% if o.is_sample %}<span class="badge sample">샘플</span>{% elif o.source == 'rss' %}<span class="badge real">학교 공지</span>{% elif o.source == 'manual' %}<span class="badge real">직접 등록</span>{% elif o.source == 'api' %}<span class="badge real">공공데이터</span>{% endif %}
-</div>
-<h1 style="margin-top:.5rem">{{ o.title }}</h1>
-<p class="muted small" style="margin:0">{{ o.host }}{% if o.posted_at %} · {{ o.posted_at }} {{ '등록' if o.source == 'manual' else '게시' }}{% endif %}</p>
+<h1 class="detail-title">{{ o.title }}</h1>
+{% set parts = ['교내' if o.scope == '교내' else '대외', display_host(o)] %}
+{% if o.posted_at %}{% if parts.append(o.posted_at.strftime('%Y.%m.%d') ~ (' 등록' if o.source == 'manual' else ' 게시')) %}{% endif %}{% endif %}
+{% if o.is_sample %}{% if parts.append('샘플') %}{% endif %}{% endif %}
+<p class="item-meta wrap">{{ parts | select | join(' · ') }}</p>
 
-<dl class="facts">
-  {% if o.deadline %}
-    {% set left = (o.deadline - today()).days %}
-    <div><dt>마감</dt><dd>{{ o.deadline }} ({{ '마감됨' if left < 0 else 'D-' ~ left }})</dd></div>
-  {% else %}
-    <div><dt>마감</dt><dd>원문 확인</dd></div>
-  {% endif %}
-  <div><dt>난이도</dt><dd>{% if o.difficulty %}{{ '●' * o.difficulty }}{{ '○' * (5 - o.difficulty) }}{% else %}정보 없음{% endif %}</dd></div>
-  <div><dt>소요시간</dt><dd>{{ '약 ' ~ o.hours ~ '시간' if o.hours else '정보 없음' }}</dd></div>
-  <div><dt>후기 평점</dt><dd>{{ avg ~ ' / 5 (' ~ o.reviews|length ~ '개)' if avg else '아직 없음' }}</dd></div>
-</dl>
+{% if o.deadline %}
+  {% set left = (o.deadline - today()).days %}
+  <p class="deadline"><b class="{{ 'urgent' if 0 <= left <= 7 }}">{{ '마감됨' if left < 0 else ('D-' ~ left if left > 0 else 'D-DAY') }}</b><span>{{ o.deadline.strftime('%Y.%m.%d') }} 마감</span></p>
+{% else %}
+  <p class="deadline none">마감일은 원문에서 확인하세요</p>
+{% endif %}
 
-{% if o.description %}<p>{{ o.description }}</p>{% endif %}
-{% if o.tags %}<p class="muted small" style="margin:.2rem 0">분야: {{ o.tags | map(attribute='name') | join(', ') }}{% if o.source == 'rss' %} (제목·본문 키워드로 추정){% endif %}</p>{% endif %}
-{% if o.specs %}<p class="muted small" style="margin:.2rem 0">얻을 수 있는 경험: {{ o.specs | map(attribute='name') | join(', ') }}</p>{% endif %}
-{% if rec and rec.reasons %}<p class="reasons">추천 이유: {{ rec.reasons | join(' · ') }} ({{ rec.score }}점)</p>{% endif %}
 {% if o.url %}
 <a class="btn" href="{{ o.url }}" target="_blank" rel="noopener">원문 공고 보기
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
 {% endif %}
 
+{% if o.description %}<p class="detail-body">{{ o.description }}</p>{% endif %}
+
+{# 값이 있는 것만 한 줄로 #}
+{% set facts = [] %}
+{% if o.difficulty %}{% if facts.append('난이도 ' ~ ('●' * o.difficulty) ~ ('○' * (5 - o.difficulty))) %}{% endif %}{% endif %}
+{% if o.hours %}{% if facts.append('약 ' ~ o.hours ~ '시간') %}{% endif %}{% endif %}
+{% if avg %}{% if facts.append('후기 ' ~ avg ~ '점 (' ~ (o.reviews | length) ~ ')') %}{% endif %}{% endif %}
+{% if facts %}<p class="item-meta wrap">{{ facts | join(' · ') }}</p>{% endif %}
+{% if o.tags %}<p class="item-meta wrap">분야: {{ o.tags | map(attribute='name') | join(', ') }}</p>{% endif %}
+{% if o.specs %}<p class="item-meta wrap">얻을 수 있는 경험: {{ o.specs | map(attribute='name') | join(', ') }}</p>{% endif %}
+{# 내부 점수·출처 표시는 사용자에게 필요 없어서 뺌. 관심 분야가 맞을 때만 한 줄 #}
+{% if rec %}{% for r in rec.reasons %}{% if r.startswith('관심 분야 일치: ') %}<p class="item-why">내 관심 분야와 맞아요: {{ r.split(': ', 1)[1] }}</p>{% endif %}{% endfor %}{% endif %}
+{% if o.tags and o.source == 'rss' %}<p class="fine">분야는 제목·본문 키워드로 추정한 것이라 틀릴 수 있어요</p>{% endif %}
+
+<section class="sec">
 <h2>후기</h2>
 {% for rv in o.reviews %}
   <div class="review"><b>{{ '★' * rv.rating }}{{ '☆' * (5 - rv.rating) }}</b> <span class="muted small">{{ rv.user.nickname if rv.user else '익명' }}</span><p>{{ rv.content }}</p></div>
 {% else %}
-  <p class="empty">첫 후기를 남겨 주세요.</p>
+  <p class="empty">첫 후기를 남겨 주세요</p>
 {% endfor %}
 
 {% if user %}
@@ -45,12 +50,13 @@
   <label class="field" for="rating">평점
     <select id="rating" name="rating">{% for n in range(5, 0, -1) %}<option value="{{ n }}">{{ n }}점</option>{% endfor %}</select>
   </label>
-  <label class="field" for="content">후기 (5~500자, 개인정보는 쓰지 마세요)
+  <label class="field" for="content"><span>후기 <span class="fine inline">· 개인정보는 쓰지 마세요</span></span>
     <textarea id="content" name="content" minlength="5" maxlength="500" required rows="3"></textarea>
   </label>
   <button class="btn ghost" type="submit" style="margin:0">후기 등록</button>
 </form>
 {% else %}
-<p class="muted small"><a href="/profile/new">프로필</a>을 만들면 후기를 남길 수 있습니다.</p>
+<p class="hint"><a href="/profile/new">프로필</a>을 만들면 후기를 남길 수 있어요</p>
 {% endif %}
+</section>
 {% endblock %}

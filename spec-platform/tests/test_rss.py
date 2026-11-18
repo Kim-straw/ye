@@ -77,7 +77,7 @@ def test_rss_items_in_app():
 
     rid = next(x["id"] for x in recs if x["source"] == "rss")
     detail = client.get(f"/opportunities/{rid}").text
-    assert "원문 공고 보기" in detail and "학교 공지" in detail
+    assert "원문 공고 보기" in detail and "정보 없음" not in detail and "추천 이유" not in detail
 
     # 갭 분석에서도 오류 없이 (마감일 없는 활동이 섞여 있어도)
     for job_id in range(1, 6):
