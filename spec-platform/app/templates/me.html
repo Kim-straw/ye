@@ -8,6 +8,7 @@
     {{ (user.department.tags + user.tags) | map(attribute='name') | unique | join(', ') }}
     <a href="/profile/new">바꾸기</a>
   </p>
+  <a class="rm-link" href="/roadmap">이번 학기 로드맵 <b>{{ rm.done }}/{{ rm.total }}</b> <span aria-hidden="true">→</span></a>
 </header>
 
 <section class="sec">

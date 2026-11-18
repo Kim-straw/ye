@@ -280,3 +280,32 @@ h2.sec-title { margin-top: var(--gap-sec); }
 }
 .loadbar.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .loadbar { transition: none; } }
+
+/* ---------- 로드맵 ----------
+   박스 없이 구분선 행. 진행도는 큰 숫자, 체크는 큰 동그라미. 체크하면 동그라미가 채워지고 글자는 옅어짐 */
+.rm-link { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; margin-top: .4rem; font-weight: 700; text-decoration: none; color: var(--brand-ink); }
+.rm-link b { font-variant-numeric: tabular-nums; }
+.rm-progress { display: flex; align-items: baseline; gap: .35rem; margin: .6rem 0 0; }
+.rm-progress b { font-family: var(--head); font-size: 2.6rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.rm-progress span { font-size: 1.1rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rm-item { align-items: center; gap: .6rem; padding: .2rem 0; }
+.rm-item form { margin: 0; }
+.rm-toggle { flex: 1; min-width: 0; }
+.rm-toggle button {
+  display: flex; align-items: center; gap: .85rem; width: 100%; min-height: 54px; padding: .5rem 0;
+  background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.rm-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--dash); box-sizing: border-box; transition: background-color .15s ease, border-color .15s ease; }
+.rm-item.done .rm-dot { background: var(--brand); border-color: var(--brand); box-shadow: inset 0 0 0 3px var(--bg); }
+.rm-title { font-size: var(--fs-item); font-weight: 700; line-height: 1.45; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.rm-item.done .rm-title { color: var(--muted); font-weight: 500; }
+.rm-item > .rm-title { flex: 1; min-width: 0; padding: .8rem 0; font-weight: 500; }
+.rm-side { flex: none; background: none; border: 0; font: inherit; font-size: var(--fs-meta); color: var(--muted); min-height: 44px; padding: 0 .3rem; cursor: pointer; }
+.rm-side:hover { color: var(--brand-ink); }
+.rm-result { margin: .35rem 0 0; font-size: 1.05rem; font-weight: 700; }
+.rm-add { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.rm-add .form-error { flex-basis: 100%; }
+.rm-add input { flex: 1; min-width: 0; }
+.rm-add .btn { min-height: 46px; padding: 0 1.2rem; }
+.rm-hidden summary { display: flex; align-items: center; min-height: 44px; font-size: var(--fs-meta); color: var(--muted); cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .rm-dot { transition: none; } }

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}로드맵 · 스펙로드{% endblock %}
+{% block content %}
+{# 위계: 제목 > 진행도(큰 숫자) > 항목 제목 > 보조 글씨. 박스 없이 구분선 행. 체크·빼기·추가는 모두 폼(POST)이라 자바스크립트 없이 동작 #}
+<header class="head stack">
+  <h1>{{ user.grade }}학년 로드맵</h1>
+  <p class="sub">{{ user.department.name }}{% if plan.tags %} · {{ plan.tags | join(', ') }}{% endif %} <a href="/profile/new">바꾸기</a></p>
+</header>
+
+<p class="rm-progress" aria-label="이번 학기 {{ plan.total }}개 중 {{ plan.done }}개 완료"><b>{{ plan.done }}</b><span>/ {{ plan.total }}</span></p>
+
+<section class="sec">
+  <h2>지금 준비할 것</h2>
+  <div class="list">
+  {% for it in plan.items %}
+    <div class="item rm-item {{ 'done' if it.done }}" id="{{ it.anchor }}">
+      <form method="post" action="/roadmap/toggle" class="rm-toggle">
+        <input type="hidden" name="key" value="{{ it.key }}">
+        <button type="submit" aria-pressed="{{ 'true' if it.done else 'false' }}"><span class="rm-dot" aria-hidden="true"></span><span class="rm-title">{{ it.title }}</span></button>
+      </form>
+      {% if it.custom %}
+      <form method="post" action="/roadmap/custom/delete"><input type="hidden" name="key" value="{{ it.key }}"><button class="rm-side" type="submit" aria-label="{{ it.title }} 삭제">삭제</button></form>
+      {% else %}
+      <form method="post" action="/roadmap/hide"><input type="hidden" name="key" value="{{ it.key }}"><button class="rm-side" type="submit" aria-label="{{ it.title }} 빼기">빼기</button></form>
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="empty">모든 항목을 뺐어요</p>
+  {% endfor %}
+  </div>
+</section>
+
+<section class="sec">
+  <h2>이번 학기 결과물</h2>
+  <p class="rm-result">{{ plan.result }}</p>
+</section>
+
+<section class="sec" id="add">
+  <h2>내 항목 추가</h2>
+  <form method="post" action="/roadmap/custom" class="rm-add">
+    {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <label class="sr" for="rm-text">추가할 항목</label>
+    <input id="rm-text" type="text" name="text" maxlength="60" required value="{{ draft }}" placeholder="예: 매주 영어 단어 외우기">
+    <button class="btn inline" type="submit">추가</button>
+  </form>
+  <p class="fine">개인정보는 쓰지 마세요</p>
+</section>
+
+{% if recs %}
+<section class="sec">
+  <h2>지금 열린 공고 <a class="more" href="/me">더 보기</a></h2>
+  <div class="list">
+  {% for r in recs %}
+    {% with o = r.opportunity, reasons = r.reasons, show_scope = false, meta = none %}{% include "_card.html" %}{% endwith %}
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if plan.hidden %}
+<details class="rm-hidden sec">
+  <summary>뺀 항목 {{ plan.hidden | length }}개 보기</summary>
+  <div class="list">
+  {% for it in plan.hidden %}
+    <div class="item rm-item" id="{{ it.anchor }}">
+      <span class="rm-title muted">{{ it.title }}</span>
+      <form method="post" action="/roadmap/restore"><input type="hidden" name="key" value="{{ it.key }}"><button class="rm-side" type="submit" aria-label="{{ it.title }} 다시 넣기">다시 넣기</button></form>
+    </div>
+  {% endfor %}
+  </div>
+</details>
+{% endif %}
+
+<p class="fine center" style="margin-top:var(--gap-sec)">일반적인 가이드예요. 학교 공식 로드맵이 아니니 내 상황에 맞게 넣고 빼세요.</p>
+{% endblock %}

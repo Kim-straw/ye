@@ -91,4 +91,4 @@ def test_progress_script_is_loaded_and_served():
     assert js.status_code == 200 and "loadbar" in js.text
     assert ".value" not in js.text and "password" not in js.text.lower()  # 입력값을 읽지 않음
     sw = c.get("/sw.js").text
-    assert "specroad-v11" in sw and "/static/progress.js" in sw
+    assert re.search(r'const CACHE = "specroad-v\d+"', sw) and "/static/progress.js" in sw  # 버전 숫자는 정적 파일을 바꿀 때마다 올라감
