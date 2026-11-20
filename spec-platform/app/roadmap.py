@@ -70,17 +70,19 @@ def tag_names(user: User) -> list[str]:
 
 
 def source_items(user: User) -> list[tuple[str, str]]:
-    items = list(data.COMMON[grade_of(user)])
+    g = grade_of(user)
+    items = list(data.COMMON[g])
     for tag in tag_names(user):
-        items += data.BY_TAG.get(tag, [])
+        items += data.BY_TAG.get(tag, {}).get(g, [])
     return items
 
 
 def result_for(user: User) -> str:
+    g = grade_of(user)
     for tag in tag_names(user):
         if tag in data.RESULT_BY_TAG:
-            return data.RESULT_BY_TAG[tag]
-    return data.RESULT_BY_GRADE[grade_of(user)]
+            return data.RESULT_BY_TAG[tag][g]
+    return data.RESULT_BY_GRADE[g]
 
 
 def _entries(db, user: User) -> dict[str, RoadmapEntry]:

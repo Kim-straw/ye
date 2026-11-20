@@ -11,17 +11,49 @@ from app.main import app
 from tests.helpers import dept_id, tag_id
 
 
+# 예전(학년 구분 없던) 로드맵에서 배포된 원본 항목 key 62개 (2cca32b). 이미 사용자 기록이 붙어 있으므로 사라지면 안 됨
+OLD_KEYS = [
+    "g1_explore_jobs", "g1_one_activity", "g1_record", "g1_study_habit", "g1_talk_senior", "g2_collect_work",
+    "g2_language_plan", "g2_one_tool", "g2_pick_field", "g2_team_project", "g3_check_requirements", "g3_field_experience",
+    "g3_narrow_jobs", "g3_portfolio_draft", "g3_resume_draft", "g4_apply_list", "g4_ask_professionals",
+    "g4_interview_practice", "g4_polish_resume", "g4_portfolio_final", "t_ai_cases", "t_ai_example", "t_art_collect",
+    "t_art_review", "t_bio_lab_note", "t_bio_paper", "t_biz_company", "t_biz_news", "t_counsel_peer",
+    "t_counsel_reading", "t_data_chart", "t_data_public", "t_design_portfolio", "t_design_tool", "t_dev_algorithm",
+    "t_dev_project", "t_env_issue", "t_env_practice", "t_lang_goal", "t_lang_output", "t_lead_event", "t_lead_role",
+    "t_mkt_brand", "t_mkt_content", "t_public_jobs", "t_public_policy", "t_sec_basics", "t_sec_study", "t_semi_jobs",
+    "t_semi_process", "t_sport_coach", "t_sport_log", "t_startup_idea", "t_startup_programs", "t_stat_practice",
+    "t_stat_read", "t_video_make", "t_video_tool", "t_volunteer_record", "t_volunteer_regular", "t_write_piece",
+    "t_write_summary",
+]
+
+
+def all_source_items():
+    items = [it for v in data.COMMON.values() for it in v]
+    return items + [it for by_grade in data.BY_TAG.values() for v in by_grade.values() for it in v]
+
+
 def test_source_list_rules():
-    keys = [k for items in list(data.COMMON.values()) + list(data.BY_TAG.values()) for k, _ in items]
-    assert len(keys) == len(set(keys))                                  # key가 겹치지 않음
+    keys = [k for k, _ in all_source_items()]
+    assert len(keys) == len(set(keys)) == len(data.ALL_ITEMS)           # key가 겹치지 않음
     assert all(re.fullmatch(r"[a-z0-9_]{3,40}", k) for k in keys)       # key는 영문 소문자·숫자·밑줄
     assert all(len(t) <= 40 for t in data.ALL_ITEMS.values())           # 문장은 40자 이내
     assert set(data.COMMON) == {1, 2, 3, 4} and all(4 <= len(v) <= 6 for v in data.COMMON.values())
     assert set(data.BY_TAG) == set(seed.TAGS) == set(data.RESULT_BY_TAG)  # 21개 분야 모두 있음
-    assert all(1 <= len(v) <= 2 for v in data.BY_TAG.values())
+    for tag in seed.TAGS:                                                 # 분야마다 1~4학년에 항목 정확히 1개, 결과물도 학년마다
+        assert set(data.BY_TAG[tag]) == {1, 2, 3, 4} and all(len(v) == 1 for v in data.BY_TAG[tag].values()), tag
+        assert set(data.RESULT_BY_TAG[tag]) == {1, 2, 3, 4}, tag
+    assert set(data.RESULT_BY_GRADE) == {1, 2, 3, 4}
+    assert set(data.KEY_GRADE) == set(data.ALL_ITEMS) and set(data.KEY_GRADE.values()) == {1, 2, 3, 4}
     # 사실처럼 보이는 숫자 정보(점수·날짜·퍼센트)를 넣지 않음
-    for t in list(data.ALL_ITEMS.values()) + list(data.RESULT_BY_TAG.values()) + list(data.RESULT_BY_GRADE.values()):
+    results = [t for d in data.RESULT_BY_TAG.values() for t in d.values()] + list(data.RESULT_BY_GRADE.values())
+    for t in list(data.ALL_ITEMS.values()) + results:
         assert not re.search(r"\d{3,}|\d+\s*(점|월|일|%|년)", t), t
+        assert len(t) <= 40, t
+
+
+def test_old_keys_are_kept():
+    """이미 저장된 체크·빼기 기록이 사라져 보이지 않도록, 예전 key는 모두 남아 있어야 함"""
+    assert len(OLD_KEYS) == 62 and set(OLD_KEYS) <= set(data.ALL_ITEMS)
 
 
 # ---------- 화면과 동작 ----------
@@ -54,14 +86,14 @@ def test_items_depend_on_grade_department_and_interests():
     common1 = {k for k, _ in data.COMMON[1]}
     assert common1 <= g1 and not common1 & g4 and {k for k, _ in data.COMMON[4]} <= g4
     dept_tags = {"반도체", "개발"}  # 반도체물리학부의 기본 분야
-    expected_tag_keys = {k for t in dept_tags for k, _ in data.BY_TAG[t]}
-    assert expected_tag_keys <= g1 and not {k for k, _ in data.BY_TAG["마케팅"]} & g1
+    expected_tag_keys = {k for t in dept_tags for k, _ in data.BY_TAG[t][1]}
+    assert expected_tag_keys <= g1 and not {k for k, _ in data.BY_TAG["마케팅"][1]} & g1
     with_marketing = set(keys_on(make_user(grade=1, tags=["마케팅"])))
-    assert {k for k, _ in data.BY_TAG["마케팅"]} <= with_marketing        # 관심 분야를 고르면 그 항목이 추가됨
+    assert {k for k, _ in data.BY_TAG["마케팅"][1]} <= with_marketing     # 관심 분야를 고르면 그 항목이 추가됨
     g6 = set(keys_on(make_user(grade=6)))
     assert {k for k, _ in data.COMMON[4]} <= g6                         # 5·6학년은 4학년 항목
     page = make_user(grade=1).get("/roadmap").text
-    assert data.RESULT_BY_TAG["반도체"] in page                          # 결과물: 학과의 가장 앞선 분야 기준
+    assert data.RESULT_BY_TAG["반도체"][1] in page                       # 결과물: 학과의 가장 앞선 분야 기준
 
 
 def test_check_hide_restore_and_progress():
