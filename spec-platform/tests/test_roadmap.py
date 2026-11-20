@@ -132,6 +132,8 @@ def test_default_open_rule():
     assert {g for g, v in sections(c, "/roadmap?open=3").items() if v["open"]} == {2, 3}
     assert {g for g, v in sections(c, "/roadmap?open=all").items() if v["open"]} == {1, 2, 3, 4}
     assert {g for g, v in sections(c, "/roadmap?open=9").items() if v["open"]} == {2}  # 이상한 값은 무시
+    assert '<option value="3" selected>' in c.get("/roadmap?open=3").text            # 추가 칸 학년 = 작업 중인 학년
+    assert '<option value="2" selected>' in c.get("/roadmap").text                   # 없으면 현재 학년
     page = c.get("/roadmap").text
     assert 'href="/roadmap?open=all">모두 펼치기' in page and 'href="/roadmap">현재 학년만 보기' in c.get("/roadmap?open=all").text
     for g in (1, 2, 3, 4):

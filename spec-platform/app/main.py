@@ -286,7 +286,8 @@ def render_roadmap(request: Request, db: Session, user: User, open_: str = "", e
     plan = roadmap.plan_for(db, user)
     return templates.TemplateResponse(request, "roadmap.html", {
         "user": user, "plan": plan, "opened": opened_grades(user, open_), "all_open": open_ == "all",
-        "error": error, "draft": draft, "draft_grade": draft_grade or plan.grade,
+        # 추가 칸의 학년 기본값: 오류로 다시 그릴 때는 고른 학년, 아니면 지금 열어서 작업 중인 학년(open), 없으면 현재 학년
+        "error": error, "draft": draft, "draft_grade": draft_grade or roadmap.parse_grade(open_) or plan.grade,
         "recs": logic.recommend(db, user, limit=3),  # 로드맵과 이어지는 실제 공고 (가짜 공고를 만들지 않음)
     }, status_code=status)
 
