@@ -271,67 +271,83 @@ def dashboard(request: Request, db: Session = Depends(get_db), user: User = Depe
     })
 
 
-# ---------- 로드맵: 학년별 안내 + 내가 넣고 뺀 것 = 한 사람만의 로드맵 ----------
-def render_roadmap(request: Request, db: Session, user: User, error: str = "", draft: str = "", status: int = 200):
+# ---------- 로드맵: 1~4학년 안내 + 내가 넣고 뺀 것 = 한 사람만의 로드맵 ----------
+def opened_grades(user: User, open_: str) -> set[int]:
+    """펼쳐 둘 학년 구역: 내 현재 학년 + 주소의 open 값(1~4 하나 또는 all)"""
+    current = roadmap.grade_of(user)
+    if open_ == "all":
+        return set(roadmap.GRADES)
+    g = roadmap.parse_grade(open_) if open_ else None
+    return {current} | ({g} if g else set())
+
+
+def render_roadmap(request: Request, db: Session, user: User, open_: str = "", error: str = "", draft: str = "",
+                   draft_grade: int | None = None, status: int = 200):
+    plan = roadmap.plan_for(db, user)
     return templates.TemplateResponse(request, "roadmap.html", {
-        "user": user, "plan": roadmap.plan_for(db, user), "error": error, "draft": draft,
+        "user": user, "plan": plan, "opened": opened_grades(user, open_), "all_open": open_ == "all",
+        "error": error, "draft": draft, "draft_grade": draft_grade or plan.grade,
         "recs": logic.recommend(db, user, limit=3),  # 로드맵과 이어지는 실제 공고 (가짜 공고를 만들지 않음)
     }, status_code=status)
 
 
-def back_to(item: "roadmap.Item | None" = None) -> RedirectResponse:
-    """바꾼 뒤 로드맵 화면으로 돌아가되, 방금 누른 줄 위치로 (303: 다시 불러올 때 같은 요청이 또 가지 않게)"""
-    return RedirectResponse("/roadmap" + (f"#{item.anchor}" if item else ""), status_code=303)
+def back_to(grade: int, item: "roadmap.Item | None" = None) -> RedirectResponse:
+    """바꾼 뒤 로드맵으로 돌아가되, 그 항목의 학년 구역을 열어 둔 채 방금 누른 줄 위치로.
+    (현재 학년이 아닌 구역에서 눌러도 구역이 닫히지 않게 open을 붙임. 303: 새로고침해도 같은 요청이 또 가지 않게)"""
+    return RedirectResponse(f"/roadmap?open={grade}" + (f"#{item.anchor}" if item else f"#grade-{grade}"), status_code=303)
 
 
 @app.get("/roadmap", response_class=HTMLResponse)
-def roadmap_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
-    return render_roadmap(request, db, user)
+def roadmap_page(request: Request, open: str = "", db: Session = Depends(get_db), user: User = Depends(require_user)):
+    return render_roadmap(request, db, user, open_=open)
 
 
 @app.post("/roadmap/toggle")
 def roadmap_toggle(key: str = Form(...), db: Session = Depends(get_db), user: User = Depends(require_user)):
     try:
-        roadmap.toggle(db, user, key)
+        item = roadmap.toggle(db, user, key)
     except roadmap.NotFound:
         raise HTTPException(404, "없는 항목입니다")  # 원본 목록에 없거나 남의 항목
-    return back_to(roadmap.Item(key, ""))
+    return back_to(item.grade, item)
 
 
 @app.post("/roadmap/hide")
 def roadmap_hide(key: str = Form(...), db: Session = Depends(get_db), user: User = Depends(require_user)):
     try:
-        roadmap.set_hidden(db, user, key, True)
+        item = roadmap.set_hidden(db, user, key, True)
     except roadmap.NotFound:
         raise HTTPException(404, "없는 항목입니다")
-    return back_to()
+    return back_to(item.grade)
 
 
 @app.post("/roadmap/restore")
 def roadmap_restore(key: str = Form(...), db: Session = Depends(get_db), user: User = Depends(require_user)):
     try:
-        roadmap.set_hidden(db, user, key, False)
+        item = roadmap.set_hidden(db, user, key, False)
     except roadmap.NotFound:
         raise HTTPException(404, "없는 항목입니다")
-    return back_to(roadmap.Item(key, ""))
+    return back_to(item.grade, item)
 
 
 @app.post("/roadmap/custom", response_class=HTMLResponse)
-def roadmap_add(request: Request, text: str = Form(""), db: Session = Depends(get_db), user: User = Depends(require_user)):
+def roadmap_add(request: Request, text: str = Form(""), grade: str = Form(""), db: Session = Depends(get_db),
+                user: User = Depends(require_user)):
     text = text.strip()
-    problem = roadmap.custom_error(db, user, text)
-    if problem:
-        return render_roadmap(request, db, user, error=problem, draft=text[:roadmap.TEXT_MAX], status=400)
-    return back_to(roadmap.add_custom(db, user, text))
+    g = roadmap.parse_grade(grade)
+    problem = roadmap.custom_error(db, user, text, g)
+    if problem:  # 다시 그릴 때 고른 학년 구역을 열고, 입력한 글과 학년을 그대로 남김
+        return render_roadmap(request, db, user, open_=str(g or ""), error=problem, draft=text[:roadmap.TEXT_MAX],
+                              draft_grade=g, status=400)
+    return back_to(g, roadmap.add_custom(db, user, text, g))
 
 
 @app.post("/roadmap/custom/delete")
 def roadmap_delete(key: str = Form(...), db: Session = Depends(get_db), user: User = Depends(require_user)):
     try:
-        roadmap.delete_custom(db, user, key)
+        grade = roadmap.delete_custom(db, user, key)
     except roadmap.NotFound:
         raise HTTPException(404, "없는 항목입니다")
-    return back_to()
+    return back_to(grade)
 
 
 @app.get("/opportunities", response_class=HTMLResponse)

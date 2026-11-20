@@ -1,18 +1,33 @@
 {% extends "base.html" %}
 {% block title %}로드맵 · 스펙로드{% endblock %}
 {% block content %}
-{# 위계: 제목 > 진행도(큰 숫자) > 항목 제목 > 보조 글씨. 박스 없이 구분선 행. 체크·빼기·추가는 모두 폼(POST)이라 자바스크립트 없이 동작 #}
+{# 한 페이지에 1~4학년. 위계: 제목 > 한눈에 보기(학년별 진행도) > 학년 구역 > 항목.
+   구역 펼침은 서버가 정함(내 현재 학년 + 주소의 open). 체크·빼기·추가는 모두 폼(POST)이라 자바스크립트 없이 동작 #}
 <header class="head stack">
-  <h1>{{ user.grade }}학년 로드맵</h1>
+  <h1>로드맵</h1>
   <p class="sub">{{ user.department.name }}{% if plan.tags %} · {{ plan.tags | join(', ') }}{% endif %} <a href="/profile/new">바꾸기</a></p>
 </header>
 
-<p class="rm-progress" aria-label="이번 학기 {{ plan.total }}개 중 {{ plan.done }}개 완료"><b>{{ plan.done }}</b><span>/ {{ plan.total }}</span></p>
+<nav class="rm-overview" aria-label="학년별 진행도">
+  {% for s in plan.sections %}
+  <a href="/roadmap?open={{ s.grade }}#grade-{{ s.grade }}" class="{{ 'now' if s.current }}" {{ 'aria-current=true' if s.current }}>
+    <span>{{ s.grade }}학년</span><b>{{ s.done }}<small>/{{ s.total }}</small></b>
+  </a>
+  {% endfor %}
+</nav>
+<p class="rm-switch">
+  {% if all_open %}<a href="/roadmap">현재 학년만 보기</a>{% else %}<a href="/roadmap?open=all">모두 펼치기</a>{% endif %}
+</p>
 
-<section class="sec">
-  <h2>지금 준비할 것</h2>
+{% for s in plan.sections %}
+<details class="rm-grade{{ ' now' if s.current }}" id="grade-{{ s.grade }}"{{ ' open' if s.grade in opened }}>
+  <summary>
+    <span class="rm-grade-name">{{ s.grade }}학년{% if s.current %} <em>지금</em>{% endif %}</span>
+    <span class="rm-sum-count">{{ s.done }} / {{ s.total }}</span>
+  </summary>
+  <p class="rm-result"><span>결과물</span> {{ s.result }}</p>
   <div class="list">
-  {% for it in plan.items %}
+  {% for it in s.items %}
     <div class="item rm-item {{ 'done' if it.done }}" id="{{ it.anchor }}">
       <form method="post" action="/roadmap/toggle" class="rm-toggle">
         <input type="hidden" name="key" value="{{ it.key }}">
@@ -28,17 +43,17 @@
     <p class="empty">모든 항목을 뺐어요</p>
   {% endfor %}
   </div>
-</section>
-
-<section class="sec">
-  <h2>이번 학기 결과물</h2>
-  <p class="rm-result">{{ plan.result }}</p>
-</section>
+</details>
+{% endfor %}
 
 <section class="sec" id="add">
   <h2>내 항목 추가</h2>
   <form method="post" action="/roadmap/custom" class="rm-add">
     {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <label class="sr" for="rm-grade">학년</label>
+    <select id="rm-grade" name="grade" class="rm-grade-select">
+      {% for g in [1, 2, 3, 4] %}<option value="{{ g }}" {{ 'selected' if g == draft_grade }}>{{ g }}학년</option>{% endfor %}
+    </select>
     <label class="sr" for="rm-text">추가할 항목</label>
     <input id="rm-text" type="text" name="text" maxlength="60" required value="{{ draft }}" placeholder="예: 매주 영어 단어 외우기">
     <button class="btn inline" type="submit">추가</button>
@@ -63,7 +78,7 @@
   <div class="list">
   {% for it in plan.hidden %}
     <div class="item rm-item" id="{{ it.anchor }}">
-      <span class="rm-title muted">{{ it.title }}</span>
+      <span class="rm-title muted"><span class="rm-tag">{{ it.grade }}학년</span>{{ it.title }}</span>
       <form method="post" action="/roadmap/restore"><input type="hidden" name="key" value="{{ it.key }}"><button class="rm-side" type="submit" aria-label="{{ it.title }} 다시 넣기">다시 넣기</button></form>
     </div>
   {% endfor %}

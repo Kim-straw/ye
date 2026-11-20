@@ -66,102 +66,175 @@ def make_user(grade=1, dept="반도체물리학부", tags=(), nickname="로드�
     return c
 
 
-def keys_on(c):
-    sec = c.get("/roadmap").text.split("지금 준비할 것")[1].split("이번 학기 결과물")[0]
-    return {m.group(1): m.group(2) == "true" for m in re.finditer(r'name="key" value="([^"]+)">\s*<button type="submit" aria-pressed="(true|false)"', sec)}
+ITEM_RE = re.compile(r'name="key" value="([^"]+)">\s*<button type="submit" aria-pressed="(true|false)"')
 
 
-def progress(c):
-    m = re.search(r'class="rm-progress"[^>]*><b>(\d+)</b><span>/ (\d+)</span>', c.get("/roadmap").text)
-    return int(m.group(1)), int(m.group(2))
+def sections(c, url="/roadmap"):
+    """화면의 학년 구역 4개: {학년: {open, now, keys{key: 체크됨?}, progress(done, total), result}}"""
+    html = c.get(url).text
+    out = {}
+    for m in re.finditer(r'<details class="rm-grade( now)?" id="grade-(\d)"( open)?>(.*?)</details>', html, re.S):
+        body = m.group(4)
+        cnt = re.search(r'class="rm-sum-count">(\d+) / (\d+)<', body)
+        out[int(m.group(2))] = {"now": bool(m.group(1)), "open": bool(m.group(3)),
+                                "keys": {k.group(1): k.group(2) == "true" for k in ITEM_RE.finditer(body)},
+                                "progress": (int(cnt.group(1)), int(cnt.group(2))),
+                                "result": re.search(r'class="rm-result"><span>결과물</span> ([^<]+)</p>', body).group(1)}
+    return out
+
+
+def keys_on(c, grade=None):
+    """한 학년 구역(기본: 내 현재 학년)의 항목 {key: 체크됨?}"""
+    secs = sections(c)
+    g = grade or next(g for g, v in secs.items() if v["now"])
+    return secs[g]["keys"]
+
+
+def progress(c, grade=None):
+    secs = sections(c)
+    g = grade or next(g for g, v in secs.items() if v["now"])
+    return secs[g]["progress"]
+
+
+def overview(c):
+    """한눈에 보기 줄: {학년: (done, total)}"""
+    html = c.get("/roadmap").text
+    return {int(m.group(1)): (int(m.group(2)), int(m.group(3)))
+            for m in re.finditer(r'<span>(\d)학년</span><b>(\d+)<small>/(\d+)</small></b>', html)}
 
 
 def setup_function():
     seed.run()
 
 
-def test_items_depend_on_grade_department_and_interests():
-    g1 = set(keys_on(make_user(grade=1)))
-    g4 = set(keys_on(make_user(grade=4)))
-    common1 = {k for k, _ in data.COMMON[1]}
-    assert common1 <= g1 and not common1 & g4 and {k for k, _ in data.COMMON[4]} <= g4
-    dept_tags = {"반도체", "개발"}  # 반도체물리학부의 기본 분야
-    expected_tag_keys = {k for t in dept_tags for k, _ in data.BY_TAG[t][1]}
-    assert expected_tag_keys <= g1 and not {k for k, _ in data.BY_TAG["마케팅"][1]} & g1
-    with_marketing = set(keys_on(make_user(grade=1, tags=["마케팅"])))
-    assert {k for k, _ in data.BY_TAG["마케팅"][1]} <= with_marketing     # 관심 분야를 고르면 그 항목이 추가됨
-    g6 = set(keys_on(make_user(grade=6)))
-    assert {k for k, _ in data.COMMON[4]} <= g6                         # 5·6학년은 4학년 항목
-    page = make_user(grade=1).get("/roadmap").text
-    assert data.RESULT_BY_TAG["반도체"][1] in page                       # 결과물: 학과의 가장 앞선 분야 기준
+def expected_keys(grade, tags):
+    return {k for k, _ in data.COMMON[grade]} | {k for t in tags for k, _ in data.BY_TAG[t][grade]}
 
 
-def test_check_hide_restore_and_progress():
-    c = make_user()
-    done, total = progress(c)
-    assert done == 0 and total == len(keys_on(c))
-    key = data.COMMON[1][0][0]
-    r = c.post("/roadmap/toggle", data={"key": key}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == f"/roadmap#item-{key}"
-    assert keys_on(c)[key] is True and progress(c) == (1, total)
-    c.post("/roadmap/toggle", data={"key": key})
-    assert keys_on(c)[key] is False and progress(c) == (0, total)
-    other = data.COMMON[1][1][0]
-    c.post("/roadmap/hide", data={"key": other})
-    assert other not in keys_on(c) and progress(c) == (0, total - 1)
-    assert "뺀 항목 1개 보기" in c.get("/roadmap").text
-    c.post("/roadmap/restore", data={"key": other})
-    assert other in keys_on(c) and progress(c) == (0, total)
+def test_all_four_grades_for_every_current_grade():
+    """핵심: 현재 학년이 1·2·3·4·6학년인 사용자 모두에게 1~4학년 구역 4개가 다 보이고, 학년마다 공통 + 내 분야의 그 학년 항목이 나옴"""
+    for dept, tags, chosen in [("반도체물리학부", ["반도체", "개발"], []),
+                               ("응용수리과학부 데이터계산과학전공", ["데이터", "AI", "통계"], ["마케팅"])]:
+        for current in (1, 2, 3, 4, 6):
+            secs = sections(make_user(grade=current, dept=dept, tags=chosen))
+            assert sorted(secs) == [1, 2, 3, 4], (dept, current)
+            now = min(current, 4)
+            assert [g for g, v in secs.items() if v["now"]] == [now]                  # '지금' 표시는 현재 학년 하나 (6학년 -> 4)
+            for g in (1, 2, 3, 4):
+                assert set(secs[g]["keys"]) == expected_keys(g, tags + chosen), (dept, current, g)
+                assert secs[g]["progress"] == (0, len(expected_keys(g, tags + chosen)))
+                assert secs[g]["result"] == data.RESULT_BY_TAG[tags[0]][g]           # 학과 대표 분야의 그 학년 결과물
+
+
+def test_default_open_rule():
+    c = make_user(grade=2)
+    assert {g for g, v in sections(c).items() if v["open"]} == {2}                   # 기본: 현재 학년만
+    assert {g for g, v in sections(c, "/roadmap?open=3").items() if v["open"]} == {2, 3}
+    assert {g for g, v in sections(c, "/roadmap?open=all").items() if v["open"]} == {1, 2, 3, 4}
+    assert {g for g, v in sections(c, "/roadmap?open=9").items() if v["open"]} == {2}  # 이상한 값은 무시
+    page = c.get("/roadmap").text
+    assert 'href="/roadmap?open=all">모두 펼치기' in page and 'href="/roadmap">현재 학년만 보기' in c.get("/roadmap?open=all").text
+    for g in (1, 2, 3, 4):
+        assert f'href="/roadmap?open={g}#grade-{g}"' in page                         # 한눈에 보기 링크가 그 구역을 엶
+
+
+def test_check_hide_restore_in_every_grade():
+    """1학년 사용자가 1~4학년 각 구역에서 체크·해제·빼기·다시 넣기를 하고, 돌아갈 때 그 구역이 열려 있음"""
+    c = make_user(grade=1)
+    for g in (1, 2, 3, 4):
+        keys = list(keys_on(c, g))
+        total = len(keys)
+        r = c.post("/roadmap/toggle", data={"key": keys[0]}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == f"/roadmap?open={g}#item-{keys[0]}"
+        secs = sections(c, r.headers["location"].split("#")[0])
+        assert secs[g]["open"] and secs[g]["keys"][keys[0]] is True and secs[g]["progress"] == (1, total)
+        assert overview(c)[g] == (1, total)
+        c.post("/roadmap/toggle", data={"key": keys[0]})
+        assert keys_on(c, g)[keys[0]] is False and progress(c, g) == (0, total)
+        r = c.post("/roadmap/hide", data={"key": keys[1]}, follow_redirects=False)
+        assert r.headers["location"] == f"/roadmap?open={g}#grade-{g}"
+        assert keys[1] not in keys_on(c, g) and progress(c, g) == (0, total - 1)
+        assert f"뺀 항목 1개 보기" in c.get("/roadmap").text and f'<span class="rm-tag">{g}학년</span>' in c.get("/roadmap").text
+        r = c.post("/roadmap/restore", data={"key": keys[1]}, follow_redirects=False)
+        assert r.headers["location"] == f"/roadmap?open={g}#item-{keys[1]}"
+        assert keys[1] in keys_on(c, g) and progress(c, g) == (0, total)
     db = SessionLocal()
     assert db.scalars(select(RoadmapEntry)).all() == []                # 처음 상태로 돌아오면 저장할 줄도 없음
     db.close()
 
 
-def test_custom_items_limits_and_delete():
-    c = make_user()
-    base_total = progress(c)[1]
-    assert c.post("/roadmap/custom", data={"text": "   매주 영어 단어 외우기  "}, follow_redirects=False).status_code == 303
-    customs = [k for k in keys_on(c) if k.startswith("custom:")]
-    assert len(customs) == 1 and "매주 영어 단어 외우기" in c.get("/roadmap").text and progress(c) == (0, base_total + 1)
-    c.post("/roadmap/toggle", data={"key": customs[0]})
-    assert progress(c) == (1, base_total + 1)
-    too_long = c.post("/roadmap/custom", data={"text": "가" * 61})
+def test_custom_items_per_grade_limits_and_delete():
+    c = make_user(grade=1)
+    base = {g: progress(c, g)[1] for g in (1, 2, 3, 4)}
+    for g in (1, 2, 3, 4):
+        r = c.post("/roadmap/custom", data={"text": f"  {g}학년에 할 내 항목  ", "grade": str(g)}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"].startswith(f"/roadmap?open={g}#item-custom-g{g}-")
+        customs = [k for k in keys_on(c, g) if k.startswith("custom:")]
+        assert len(customs) == 1 and re.fullmatch(rf"custom:g{g}:[0-9a-f]{{16}}", customs[0]) and len(customs[0]) <= 40
+        assert progress(c, g) == (0, base[g] + 1)
+        assert all(customs[0] not in keys_on(c, h) for h in (1, 2, 3, 4) if h != g)   # 다른 학년 구역에는 안 나옴
+        r = c.post("/roadmap/toggle", data={"key": customs[0]}, follow_redirects=False)
+        assert r.headers["location"] == f"/roadmap?open={g}#item-{customs[0].replace(':', '-')}"
+        assert progress(c, g) == (1, base[g] + 1)
+    key3 = [k for k in keys_on(c, 3) if k.startswith("custom:")][0]
+    r = c.post("/roadmap/custom/delete", data={"key": key3}, follow_redirects=False)
+    assert r.headers["location"] == "/roadmap?open=3#grade-3" and key3 not in keys_on(c, 3)
+    # 오류: 고른 학년 구역이 열린 채로, 입력한 글과 학년이 남음
+    too_long = c.post("/roadmap/custom", data={"text": "가" * 61, "grade": "3"})
     assert too_long.status_code == 400 and "60자 이내" in too_long.text
-    blank = c.post("/roadmap/custom", data={"text": "    "})
-    assert blank.status_code == 400 and "적어 주세요" in blank.text
-    for i in range(19):
-        assert c.post("/roadmap/custom", data={"text": f"항목 {i}"}, follow_redirects=False).status_code == 303
-    over = c.post("/roadmap/custom", data={"text": "스물한 번째"})
-    assert over.status_code == 400 and "20개까지" in over.text
-    c.post("/roadmap/custom/delete", data={"key": customs[0]})
-    assert customs[0] not in keys_on(c)
-    assert c.post("/roadmap/hide", data={"key": "custom:abc"}).status_code == 404   # 직접 넣은 항목은 빼기 대신 삭제
+    assert re.search(r'id="grade-3" open', too_long.text) and '<option value="3" selected>' in too_long.text
+    assert 'value="' + "가" * 60 + '"' in too_long.text
+    blank = c.post("/roadmap/custom", data={"text": "    ", "grade": "2"})
+    assert blank.status_code == 400 and "적어 주세요" in blank.text and re.search(r'id="grade-2" open', blank.text)
+    for bad in ("0", "5", "x", ""):
+        r = c.post("/roadmap/custom", data={"text": "학년이 이상함", "grade": bad})
+        assert r.status_code == 400 and "학년을 다시 골라 주세요" in r.text
+    for i in range(17):  # 지금 3개 있음(1·2·4학년) -> 합계 20개까지
+        assert c.post("/roadmap/custom", data={"text": f"항목 {i}", "grade": str(i % 4 + 1)}, follow_redirects=False).status_code == 303
+    over = c.post("/roadmap/custom", data={"text": "스물한 번째", "grade": "4"})
+    assert over.status_code == 400 and "20개까지" in over.text and re.search(r'id="grade-4" open', over.text)
+    assert c.post("/roadmap/hide", data={"key": "custom:g1:" + "a" * 16}).status_code == 404   # 직접 넣은 항목은 빼기 대신 삭제
     assert c.post("/roadmap/toggle", data={"key": "not_a_real_key"}).status_code == 404
+
+
+def test_legacy_custom_key_shows_in_current_grade():
+    """예전 형식(학년 없는 custom:16자)으로 저장된 항목은 현재 학년 구역에 보이고 체크·삭제가 됨"""
+    c = make_user(grade=3, nickname="예전")
+    db = SessionLocal()
+    uid = db.scalars(select(User.id).where(User.nickname == "예전")).one()
+    db.add(RoadmapEntry(user_id=uid, item_key="custom:0123456789abcdef", text="예전에 넣은 항목", done=False, hidden=False))
+    db.commit()
+    db.close()
+    assert "custom:0123456789abcdef" in keys_on(c, 3) and all("custom:0123456789abcdef" not in keys_on(c, g) for g in (1, 2, 4))
+    r = c.post("/roadmap/toggle", data={"key": "custom:0123456789abcdef"}, follow_redirects=False)
+    assert r.headers["location"] == "/roadmap?open=3#item-custom-0123456789abcdef" and keys_on(c, 3)["custom:0123456789abcdef"] is True
+    r = c.post("/roadmap/custom/delete", data={"key": "custom:0123456789abcdef"}, follow_redirects=False)
+    assert r.headers["location"] == "/roadmap?open=3#grade-3" and "custom:0123456789abcdef" not in keys_on(c, 3)
 
 
 def test_cannot_touch_other_users_items():
     alice, bob = make_user(nickname="앨리스"), make_user(nickname="밥")
-    alice.post("/roadmap/custom", data={"text": "앨리스의 항목"})
-    alice_key = [k for k in keys_on(alice) if k.startswith("custom:")][0]
+    alice.post("/roadmap/custom", data={"text": "앨리스의 항목", "grade": "2"})
+    alice_key = [k for k in keys_on(alice, 2) if k.startswith("custom:")][0]
     assert bob.post("/roadmap/toggle", data={"key": alice_key}).status_code == 404
     assert bob.post("/roadmap/custom/delete", data={"key": alice_key}).status_code == 404
-    assert "앨리스의 항목" not in bob.get("/roadmap").text
-    assert keys_on(alice)[alice_key] is False                            # 앨리스 것은 그대로
+    assert "앨리스의 항목" not in bob.get("/roadmap?open=all").text
+    assert keys_on(alice, 2)[alice_key] is False                          # 앨리스 것은 그대로
     stranger = TestClient(app)
     assert stranger.get("/roadmap", follow_redirects=False).headers["location"] == "/profile/new"
-    assert stranger.post("/roadmap/custom", data={"text": "x"}, follow_redirects=False).status_code == 303
+    assert stranger.post("/roadmap/custom", data={"text": "x", "grade": "1"}, follow_redirects=False).status_code == 303
 
 
 def test_custom_text_is_escaped():
     c = make_user()
-    c.post("/roadmap/custom", data={"text": "<script>alert(1)</script>"})
+    c.post("/roadmap/custom", data={"text": "<script>alert(1)</script>", "grade": "1"})
     html = c.get("/roadmap").text
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;alert(1)&lt;/script&gt;" in html
 
 
 def test_delete_profile_removes_roadmap():
     c = make_user()
-    c.post("/roadmap/custom", data={"text": "지워질 항목"})
+    c.post("/roadmap/custom", data={"text": "지워질 항목", "grade": "4"})
     c.post("/roadmap/toggle", data={"key": data.COMMON[1][0][0]})
     db = SessionLocal()
     assert len(db.scalars(select(RoadmapEntry)).all()) == 2
@@ -178,16 +251,18 @@ def test_checks_survive_grade_change():
     c.post("/roadmap/toggle", data={"key": key})
     form = {"nickname": "로드맵", "department_id": dept_id("반도체물리학부"), "admission_year": 2025}
     c.post("/profile", data={**form, "grade": 2})
-    assert key not in keys_on(c)                                         # 2학년에는 안 보임
+    secs = sections(c)
+    assert secs[2]["now"] and secs[1]["keys"][key] is True                 # 2학년이 돼도 1학년 구역에 체크가 그대로
     c.post("/profile", data={**form, "grade": 1})
-    assert keys_on(c)[key] is True                                       # 1학년으로 돌아오면 체크가 그대로
+    assert keys_on(c)[key] is True
 
 
-def test_me_shows_roadmap_link():
-    c = make_user()
-    c.post("/roadmap/toggle", data={"key": data.COMMON[1][0][0]})
-    done, total = progress(c)
-    assert f'href="/roadmap">이번 학기 로드맵 <b>{done}/{total}</b>' in c.get("/me").text
+def test_me_shows_current_grade_progress():
+    c = make_user(grade=2)
+    c.post("/roadmap/toggle", data={"key": data.COMMON[2][0][0]})
+    c.post("/roadmap/toggle", data={"key": data.COMMON[3][0][0]})        # 다른 학년 체크는 /me 숫자에 안 들어감
+    done, total = progress(c, 2)
+    assert done == 1 and f'href="/roadmap">이번 학기 로드맵 <b>{done}/{total}</b>' in c.get("/me").text
 
 
 def test_startup_creates_table_on_old_db():
