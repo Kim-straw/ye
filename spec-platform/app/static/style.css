@@ -317,22 +317,67 @@ h2.sec-title { margin-top: var(--gap-sec); }
 .rm-overview small { font-size: .8rem; font-weight: 500; color: var(--muted); margin-left: .1rem; }
 .rm-overview a.now span { color: var(--brand-ink); font-weight: 700; }
 .rm-overview a.now b { font-size: 2rem; color: var(--brand-ink); }
-.rm-switch { margin: .2rem 0 1rem; text-align: right; font-size: var(--fs-meta); }
+.rm-switch { display: flex; justify-content: space-between; align-items: center; margin: .2rem 0 1rem; font-size: var(--fs-meta); }
+.rm-switch a.rm-result-link { color: var(--brand-ink); font-weight: 700; text-decoration: none; }
 .rm-switch a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); }
-.rm-grade { border-top: 1px solid var(--line); }
-.rm-grade:last-of-type { border-bottom: 1px solid var(--line); }
-.rm-grade summary {
+.rm-grade, .rs-grade { border-top: 1px solid var(--line); }
+.rm-grade:last-of-type, .rs-grade:last-of-type { border-bottom: 1px solid var(--line); }
+.rm-grade summary, .rs-grade summary {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem; min-height: 60px; cursor: pointer; list-style: none;
 }
-.rm-grade summary::-webkit-details-marker { display: none; }
-.rm-grade summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px .3rem 0 .2rem; transition: transform .15s ease; }
-.rm-grade[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.rm-grade summary::-webkit-details-marker, .rs-grade summary::-webkit-details-marker { display: none; }
+.rm-grade summary::after, .rs-grade summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px .3rem 0 .2rem; transition: transform .15s ease; }
+.rm-grade[open] summary::after, .rs-grade[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
 .rm-grade-name { flex: 1; font-family: var(--head); font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
 .rm-grade-name em { margin-left: .35rem; font-style: normal; font-family: var(--sans); font-size: var(--fs-meta); font-weight: 700; color: var(--brand-ink); }
 .rm-sum-count { font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rm-grade.now .rm-sum-count { color: var(--brand-ink); font-weight: 700; }
-.rm-grade[open] { padding-bottom: .6rem; }
+.rm-grade[open], .rs-grade[open] { padding-bottom: .6rem; }
 .rm-grade .list .item:last-child { border-bottom: 0; }
 .rm-tag { margin-right: .45rem; font-size: var(--fs-meta); color: var(--muted); }
 .rm-grade-select { flex: none; width: auto; min-width: 5.6rem; }
-@media (prefers-reduced-motion: reduce) { .rm-grade summary::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .rm-grade summary::after, .rs-grade summary::after { transition: none; } }
+
+/* ---------- 로드맵 결과 ----------
+   타임라인(1→4학년)을 도식 하나로 쓰고, 나머지는 학년 칸과 문장. 박스 없이 구분선만 */
+.rs-overview { margin-top: 1rem; }
+.rs-total { display: flex; align-items: baseline; gap: .4rem; margin: 0 0 .9rem; }
+.rs-total b { font-family: var(--head); font-size: 2.4rem; font-weight: 800; line-height: 1; color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.rs-total span { color: var(--muted); font-size: .95rem; }
+.tl { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+.tl-step { position: relative; display: flex; flex-direction: column; gap: .2rem; padding-top: 1.4rem; min-width: 0; }
+.tl-step::before { content: ""; position: absolute; top: .45rem; left: 0; right: -.5rem; height: 2px; background: var(--line); }  /* 학년을 잇는 선 */
+.tl-step:last-child::before { right: 0; }
+.tl-dot { position: absolute; top: 0; left: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 2px solid var(--dash); box-sizing: border-box; }
+.tl-step.now .tl-dot { background: var(--brand); border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.tl-grade { font-size: .9rem; font-weight: 700; white-space: nowrap; }
+.tl-grade em { font-style: normal; font-size: .72rem; color: var(--brand-ink); }
+.tl-step.now .tl-grade { color: var(--brand-ink); }
+.tl-count { font-size: var(--fs-meta); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tl-bar { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.tl-bar i { display: block; height: 100%; background: var(--dash); }
+.tl-step.now .tl-bar i { background: var(--brand); }
+.rs-now { margin: .4rem 0 0; padding-left: 1.3rem; }
+.rs-now li { padding: .45rem 0; font-size: 1.08rem; font-weight: 700; line-height: 1.45; }
+.rs-now li::marker { color: var(--brand-ink); font-weight: 800; }
+.rs-label { margin: .2rem 0 .1rem; font-size: var(--fs-meta); color: var(--muted); }
+.rs-list { margin: 0; padding-left: 1.1rem; }
+.rs-list li { padding: .3rem 0; line-height: 1.5; }
+.rs-done { margin: .6rem 0 0; font-size: var(--fs-meta); color: var(--muted); line-height: 1.6; }
+.rs-done span { font-weight: 700; margin-right: .3rem; }
+.rs-paths { display: grid; gap: .8rem; margin: .5rem 0 0; }
+.rs-paths .btn { justify-self: start; min-height: 44px; padding: 0 1.4rem; }
+.chip small { margin-left: .3rem; font-size: .7rem; font-weight: 700; color: var(--brand-ink); }
+.chip input:checked + span small { color: var(--on-brand-soft); }
+.rs-guide { margin-top: var(--gap-sec); padding-top: 1rem; border-top: 1px solid var(--line); }
+.rs-guide h3 { margin: 0; font-size: 1.2rem; }
+.rs-intro { margin: .25rem 0 .6rem; font-size: .88rem; color: var(--muted); }
+.rs-row { display: grid; grid-template-columns: 3.6rem minmax(0, 1fr); gap: .6rem; padding: .55rem 0; }
+.rs-row + .rs-row { border-top: 1px solid var(--line); }
+.rs-row-grade { font-size: .88rem; font-weight: 700; color: var(--muted); padding-top: .1rem; }
+.rs-row.now .rs-row-grade { color: var(--brand-ink); }
+.rs-row ul { margin: 0; padding-left: 1rem; }
+.rs-row li { padding: .12rem 0; line-height: 1.5; font-size: .95rem; }
+.rs-row.now li { font-weight: 700; }
+.rs-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: .2rem; font-size: var(--fs-meta); color: var(--muted); text-decoration: none; }
+@media (max-width: 360px) { .tl-grade em { display: none; } }

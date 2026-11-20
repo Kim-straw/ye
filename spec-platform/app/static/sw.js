@@ -1,7 +1,7 @@
 // 서비스 워커: 앱 뒤에서 돌아가는 작은 비서.
 // 화면 뼈대(CSS, 아이콘)는 폰에 저장해 두고, 데이터 페이지는 항상 서버에서 새로 받음.
 // 인터넷이 끊기면 '오프라인' 안내를 보여 줌.
-const CACHE = "specroad-v13";
+const CACHE = "specroad-v14";
 const SHELL = ["/static/style.css", "/static/progress.js", "/static/icon.svg", "/static/icon-192.png"];
 
 self.addEventListener("install", (e) => {

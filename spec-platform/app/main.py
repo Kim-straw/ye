@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import accounts, logic, roadmap, rss_import, security, seed
+from . import accounts, logic, roadmap, roadmap_data, roadmap_result, rss_import, security, seed
 from .db import Department, Job, Opportunity, Review, RoadmapEntry, School, Spec, Tag, User, UserSpec, get_db
 
 BASE = Path(__file__).resolve().parent
@@ -349,6 +349,30 @@ def roadmap_delete(key: str = Form(...), db: Session = Depends(get_db), user: Us
     except roadmap.NotFound:
         raise HTTPException(404, "없는 항목입니다")
     return back_to(grade)
+
+
+# ---------- 로드맵 결과: 1~4학년 정리 + 고른 진로 방향의 학년별 가이드 ----------
+def render_result(request: Request, db: Session, user: User, error: str = "", status: int = 200):
+    r = roadmap_result.result_for(db, user)
+    return templates.TemplateResponse(request, "roadmap_result.html", {
+        "user": user, "r": r, "error": error, "paths_all": roadmap_data.PATHS,
+        "recruit_link": lambda p: "/recruit?" + urlencode(p["link"]),  # 관련 공고 보기: 기존 인턴·채용 검색 재사용
+    }, status_code=status)
+
+
+@app.get("/roadmap/result", response_class=HTMLResponse)
+def roadmap_result_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    return render_result(request, db, user)
+
+
+@app.post("/roadmap/paths", response_class=HTMLResponse)
+async def roadmap_paths(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    keys = [str(k) for k in (await request.form()).getlist("path")]  # 체크박스는 여러 값이 같은 이름으로 옴
+    problem = roadmap_result.path_error(keys)
+    if problem:
+        return render_result(request, db, user, error=problem, status=400)  # 실패하면 저장된 선택은 그대로
+    roadmap_result.save_paths(db, user, keys)
+    return RedirectResponse("/roadmap/result#paths", status_code=303)
 
 
 @app.get("/opportunities", response_class=HTMLResponse)

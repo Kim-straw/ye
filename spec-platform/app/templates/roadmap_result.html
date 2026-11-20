@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}내 로드맵 결과 · 스펙로드{% endblock %}
+{% block content %}
+{# 계산은 roadmap_result.result_for가 하고 여기서는 그리기만. 위계: 제목 > 타임라인 도식 > 지금 할 일 > 학년별 정리 > 진로 방향 가이드 #}
+<header class="head stack">
+  <h1>내 로드맵 결과</h1>
+  <p class="sub">{{ r.department }} · {{ user.grade }}학년{% if r.tags %} · {{ r.tags | join(', ') }}{% endif %} <a href="/roadmap">로드맵으로</a></p>
+</header>
+
+{# 한눈에 보기: 1→4학년 타임라인. 이미지·자바스크립트 없이 HTML/CSS로 그림 #}
+<section class="rs-overview" aria-label="학년별 진행도">
+  <p class="rs-total"><b>{{ r.done }}</b><span>/ {{ r.total }} 완료</span></p>
+  <ol class="tl">
+    {% for g in r.grades %}
+    <li class="tl-step{{ ' now' if g.current }}">
+      <span class="tl-dot" aria-hidden="true"></span>
+      <span class="tl-grade">{{ g.grade }}학년{% if g.current %} <em>지금</em>{% endif %}</span>
+      <span class="tl-count">{{ g.done | length }}/{{ g.total }}</span>
+      <span class="tl-bar" aria-hidden="true"><i style="width: {{ g.percent }}%"></i></span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section class="sec">
+  <h2>지금 할 일 <a class="more" href="/roadmap">로드맵에서 체크</a></h2>
+  {% if r.now %}
+  <ol class="rs-now">
+    {% for it in r.now %}<li>{{ it.title }}</li>{% endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">이번 학년 항목을 모두 했어요</p>
+  {% endif %}
+</section>
+
+<section class="sec">
+  <h2>학년별 정리</h2>
+  {% for g in r.grades %}
+  <details class="rs-grade" id="rs-{{ g.grade }}"{{ ' open' if g.current }}>
+    <summary>
+      <span class="rm-grade-name">{{ g.grade }}학년{% if g.current %} <em>지금</em>{% endif %}</span>
+      <span class="rm-sum-count">완료 {{ g.done | length }} / {{ g.total }}</span>
+    </summary>
+    {% if g.todo %}
+    <p class="rs-label">앞으로 할 것</p>
+    <ul class="rs-list">{% for it in g.todo %}<li>{{ it.title }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if g.done %}<p class="rs-done"><span>완료</span> {{ g.done | map(attribute='title') | join(' · ') }}</p>{% endif %}
+    {% if not g.todo and not g.done %}<p class="empty">이 학년 항목을 모두 뺐어요</p>{% endif %}
+  </details>
+  {% endfor %}
+</section>
+
+<section class="sec" id="paths">
+  <h2>진로 방향</h2>
+  <form method="post" action="/roadmap/paths" class="rs-paths">
+    {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+    <div class="chips">
+      {% for p in paths_all %}
+      <label class="chip"><input type="checkbox" name="path" value="{{ p.key }}"{{ ' checked' if p.key in r.chosen }}><span>{{ p.name }}{% if p.key in r.recommended %} <small>추천</small>{% endif %}</span></label>
+      {% endfor %}
+    </div>
+    <button class="btn inline" type="submit">적용</button>
+  </form>
+
+  {% for p in r.paths %}
+  <article class="rs-guide" id="guide-{{ p.key }}">
+    <h3>{{ p.name }}</h3>
+    <p class="rs-intro">{{ p.intro }}</p>
+    {% for grade in [1, 2, 3, 4] %}
+    <div class="rs-row{{ ' now' if grade == r.grade }}">
+      <span class="rs-row-grade">{{ grade }}학년</span>
+      <ul>{% for t in p.steps[grade] %}<li>{{ t }}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+    <a class="more rs-link" href="{{ recruit_link(p) }}">관련 공고 보기 <span aria-hidden="true">→</span></a>
+  </article>
+  {% else %}
+  <p class="empty">진로 방향을 고르면 학년별로 해야 할 일을 보여 드려요</p>
+  {% endfor %}
+</section>
+
+<p class="fine center" style="margin-top:var(--gap-sec)">일반적인 가이드예요. 학교 공식 안내가 아니며, 채용·진학 조건은 해당 기관 공고에서 꼭 확인하세요.</p>
+{% endblock %}
