@@ -285,9 +285,6 @@ h2.sec-title { margin-top: var(--gap-sec); }
    박스 없이 구분선 행. 진행도는 큰 숫자, 체크는 큰 동그라미. 체크하면 동그라미가 채워지고 글자는 옅어짐 */
 .rm-link { display: inline-flex; align-items: center; gap: .35rem; min-height: 44px; margin-top: .4rem; font-weight: 700; text-decoration: none; color: var(--brand-ink); }
 .rm-link b { font-variant-numeric: tabular-nums; }
-.rm-progress { display: flex; align-items: baseline; gap: .35rem; margin: .6rem 0 0; }
-.rm-progress b { font-family: var(--head); font-size: 2.6rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; color: var(--brand-ink); font-variant-numeric: tabular-nums; }
-.rm-progress span { font-size: 1.1rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rm-item { align-items: center; gap: .6rem; padding: .2rem 0; }
 .rm-item form { margin: 0; }
 .rm-toggle { flex: 1; min-width: 0; }
@@ -302,10 +299,40 @@ h2.sec-title { margin-top: var(--gap-sec); }
 .rm-item > .rm-title { flex: 1; min-width: 0; padding: .8rem 0; font-weight: 500; }
 .rm-side { flex: none; background: none; border: 0; font: inherit; font-size: var(--fs-meta); color: var(--muted); min-height: 44px; padding: 0 .3rem; cursor: pointer; }
 .rm-side:hover { color: var(--brand-ink); }
-.rm-result { margin: .35rem 0 0; font-size: 1.05rem; font-weight: 700; }
+.rm-result { margin: .1rem 0 .3rem; font-size: .95rem; font-weight: 700; }
+.rm-result span { margin-right: .4rem; font-size: var(--fs-meta); font-weight: 500; color: var(--muted); }
 .rm-add { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
 .rm-add .form-error { flex-basis: 100%; }
 .rm-add input { flex: 1; min-width: 0; }
 .rm-add .btn { min-height: 46px; padding: 0 1.2rem; }
 .rm-hidden summary { display: flex; align-items: center; min-height: 44px; font-size: var(--fs-meta); color: var(--muted); cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .rm-dot { transition: none; } }
+
+/* ---------- 로드맵 1~4학년 ----------
+   한눈에 보기: 학년 4칸, 현재 학년 숫자만 크림슨으로 크게. 학년 구역: 박스 없이 굵은 학년 이름 + 오른쪽 진행도, 사이 구분선 한 줄 */
+.rm-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .4rem; margin: 1rem 0 0; }
+.rm-overview a { display: flex; flex-direction: column; gap: .15rem; min-height: 56px; padding: .35rem 0; text-decoration: none; color: var(--muted); }
+.rm-overview span { font-size: var(--fs-meta); }
+.rm-overview b { font-family: var(--head); font-size: 1.35rem; font-weight: 800; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
+.rm-overview small { font-size: .8rem; font-weight: 500; color: var(--muted); margin-left: .1rem; }
+.rm-overview a.now span { color: var(--brand-ink); font-weight: 700; }
+.rm-overview a.now b { font-size: 2rem; color: var(--brand-ink); }
+.rm-switch { margin: .2rem 0 1rem; text-align: right; font-size: var(--fs-meta); }
+.rm-switch a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); }
+.rm-grade { border-top: 1px solid var(--line); }
+.rm-grade:last-of-type { border-bottom: 1px solid var(--line); }
+.rm-grade summary {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem; min-height: 60px; cursor: pointer; list-style: none;
+}
+.rm-grade summary::-webkit-details-marker { display: none; }
+.rm-grade summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -4px .3rem 0 .2rem; transition: transform .15s ease; }
+.rm-grade[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.rm-grade-name { flex: 1; font-family: var(--head); font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+.rm-grade-name em { margin-left: .35rem; font-style: normal; font-family: var(--sans); font-size: var(--fs-meta); font-weight: 700; color: var(--brand-ink); }
+.rm-sum-count { font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rm-grade.now .rm-sum-count { color: var(--brand-ink); font-weight: 700; }
+.rm-grade[open] { padding-bottom: .6rem; }
+.rm-grade .list .item:last-child { border-bottom: 0; }
+.rm-tag { margin-right: .45rem; font-size: var(--fs-meta); color: var(--muted); }
+.rm-grade-select { flex: none; width: auto; min-width: 5.6rem; }
+@media (prefers-reduced-motion: reduce) { .rm-grade summary::after { transition: none; } }
