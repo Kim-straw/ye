@@ -12,14 +12,15 @@ from tests.helpers import dept_id, tag_id
 
 
 def test_path_guide_rules():
-    assert [p["key"] for p in data.PATHS] == ["finance", "public", "grad", "dev", "data_ai", "research", "marketing", "startup"]
+    assert [p["key"] for p in data.PATHS] == ["finance", "public", "civil", "grad", "research", "engineer", "dev", "data_ai",
+                                              "design_ux", "marketing", "sales", "global", "media", "health", "startup"]
     sentences = []
     for p in data.PATHS:
         assert re.fullmatch(r"[a-z0-9_]{3,20}", p["key"]) and p["name"] and p["intro"]
         assert set(p["steps"]) == {1, 2, 3, 4} and all(len(v) == 3 for v in p["steps"].values()), p["key"]
         assert set(p["link"]) <= {"q", "sector"} and p["link"]
         sentences += [p["intro"]] + [t for v in p["steps"].values() for t in v]
-    assert len(sentences) == 8 + 96
+    assert len(sentences) == 15 + 15 * 12
     assert len(set(sentences)) == len(sentences)                         # 직군끼리 문장이 겹치지 않음
     for t in sentences:
         assert len(t) <= 45, t
@@ -94,11 +95,11 @@ def chips(page):
 
 
 def test_choose_paths_save_replace_and_limits():
-    c = make_user(grade=3, dept="반도체물리학부")               # 기본 분야: 반도체·개발 -> 연구원·개발 추천
+    c = make_user(grade=3, dept="반도체물리학부")               # 기본 분야: 반도체·개발 -> 연구원·공정·품질·개발 추천
     page = c.get("/roadmap/result").text
     ch = chips(page)
     assert set(ch) == set(data.PATH_BY_KEY) and not any(v[0] for v in ch.values())   # 자동 선택 안 함
-    assert {k for k, v in ch.items() if v[1]} == {"research", "dev"}
+    assert {k for k, v in ch.items() if v[1]} == {"research", "engineer", "dev"}
     assert "진로 방향을 고르면 학년별로 해야 할 일을 보여 드려요" in page
     r = c.post("/roadmap/paths", data={"path": ["dev", "finance"]}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/roadmap/result#paths"
