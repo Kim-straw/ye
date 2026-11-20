@@ -145,3 +145,18 @@ def test_custom_text_escaped_on_result_page():
     c.post("/roadmap/custom", data={"text": "<script>alert(1)</script>", "grade": "1"})
     page = c.get("/roadmap/result").text
     assert "<script>alert(1)</script>" not in page and "&lt;script&gt;alert(1)&lt;/script&gt;" in page
+
+
+def test_delete_profile_removes_path_rows_and_privacy_mentions_it():
+    c = make_user(nickname="삭제")
+    c.post("/roadmap/paths", data={"path": ["dev", "grad"]})
+    c.post("/roadmap/custom", data={"text": "지워질 항목", "grade": "2"})
+    db, u = user_of("삭제")
+    uid = u.id
+    assert {e.item_key.split(":")[0] for e in db.scalars(select(RoadmapEntry).where(RoadmapEntry.user_id == uid))} == {"path", "custom"}
+    db.close()
+    c.post("/profile/delete", data={"confirm": "yes"})
+    db = SessionLocal()
+    assert db.scalars(select(RoadmapEntry).where(RoadmapEntry.user_id == uid)).all() == []
+    db.close()
+    assert "고른 진로 방향" in TestClient(app).get("/privacy").text
