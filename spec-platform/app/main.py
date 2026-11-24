@@ -19,8 +19,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import accounts, listing, logic, roadmap, roadmap_data, roadmap_result, rss_import, security, seed
-from .db import Department, Job, Opportunity, Review, RoadmapEntry, School, Spec, Tag, User, UserSpec, get_db
+from . import accounts, bookmarks, listing, logic, roadmap, roadmap_data, roadmap_result, rss_import, security, seed
+from .db import Bookmark, Department, Job, Opportunity, Review, RoadmapEntry, School, Spec, Tag, User, UserSpec, get_db
 
 BASE = Path(__file__).resolve().parent
 
@@ -413,13 +413,13 @@ def one_selected(values: list[str]) -> str:
 
 
 def list_view(request: Request, template: str, path: str, items: list, current: dict, *, sort: str, page: str,
-              extra: dict) -> HTMLResponse:
+              extra: dict, saved: set[int]) -> HTMLResponse:
     """목록 화면 3개가 같이 쓰는 마무리: 정렬 → 20개씩 자르기 → 링크·숨은 칸 만들기 → 그리기"""
     pg = listing.paginate(listing.sort_items(items, sort), listing.parse_page(page))
     link = make_link(path, {**current, "sort": sort})
     filter_keys = ("category", "sector", "period", "region", "mine", "show_closed")
     return templates.TemplateResponse(request, template, {
-        **extra, "pg": pg, "link": link, "sort": sort, "sorts": listing.SORTS, "periods": listing.PERIODS,
+        **extra, "pg": pg, "saved": saved, "link": link, "sort": sort, "sorts": listing.SORTS, "periods": listing.PERIODS,
         "action": path, "f": current, "regions": logic.REGIONS,
         "active_filters": sum(1 for k in filter_keys if current.get(k)),
         "search_hidden": listing.hidden_fields({**current, "sort": sort}, drop=("q",)),
@@ -454,7 +454,7 @@ def opportunity_list(request: Request, scope: str = "", category: list[str] = Qu
     title = {"교내": "교내 프로그램", "외부": "대외활동"}.get(scope, "전체 활동")
     return list_view(request, "opportunities.html", "/opportunities", items, current, sort=sort, page=page, extra={
         "user": user, "scope": scope, "title": title, "catbar": catbar, "cat_names": cat_names, "unit": "개",
-    })
+    }, saved=bookmarks.saved_ids(db, user))
 
 
 @app.get("/recruit", response_class=HTMLResponse)
@@ -489,7 +489,7 @@ def recruit(request: Request, q: str = "", kind: str = "", sector: list[str] = Q
         "user": user, "title": "인턴·채용", "catbar": catbar, "cat_names": cat_names, "sectors": logic.SECTORS,
         "mine": mine, "my_tags": my_tags, "unit": "건",
         "sector_of": logic.recruit_sector, "region_of": logic.recruit_region, "kind_of": logic.recruit_kind,
-    })
+    }, saved=bookmarks.saved_ids(db, user))
 
 
 @app.get("/opportunities/{opp_id}", response_class=HTMLResponse)
@@ -500,7 +500,25 @@ def opportunity_detail(opp_id: int, request: Request, db: Session = Depends(get_
         raise HTTPException(404, "없는 활동입니다")
     rec = logic.score_opportunity(user, opp) if user else None
     avg = round(sum(r.rating for r in opp.reviews) / len(opp.reviews), 1) if opp.reviews else None
-    return templates.TemplateResponse(request, "opportunity.html", {"user": user, "o": opp, "rec": rec, "avg": avg})
+    return templates.TemplateResponse(request, "opportunity.html", {"user": user, "o": opp, "rec": rec, "avg": avg,
+                                                                    "saved": bookmarks.saved_ids(db, user)})
+
+
+@app.post("/bookmarks/toggle")
+def bookmark_toggle(opportunity_id: int = Form(...), next: str = Form(""), db: Session = Depends(get_db),
+                    user: User = Depends(require_user)):
+    """공고 저장/해제. 로그인 전이면 프로필 화면으로(401 처리), 없는 공고면 404. 돌아갈 주소는 사이트 안만 허용"""
+    opp = db.get(Opportunity, opportunity_id)
+    if opp is None:
+        raise HTTPException(404, "없는 활동입니다")
+    bookmarks.toggle(db, user, opp)
+    return RedirectResponse(bookmarks.safe_next(next), status_code=303)
+
+
+@app.get("/saved", response_class=HTMLResponse)
+def saved_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    items = bookmarks.saved_list(db, user)
+    return templates.TemplateResponse(request, "saved.html", {"user": user, "items": items, "saved": {o.id for o in items}})
 
 
 @app.post("/opportunities/{opp_id}/reviews")
@@ -545,13 +563,15 @@ def privacy(request: Request, user: User | None = Depends(current_user)):
 
 @app.post("/profile/delete")
 def delete_profile(confirm: str = Form(""), db: Session = Depends(get_db), user: User = Depends(require_user)):
-    """내 정보 삭제: 프로필·로그인 정보·후기·로드맵 기록을 DB에서 지우고 쿠키도 지움"""
+    """내 정보 삭제: 프로필·로그인 정보·후기·로드맵 기록·저장한 공고를 DB에서 지우고 쿠키도 지움"""
     if confirm != "yes":
         raise HTTPException(400, "삭제 확인란에 체크해 주세요")
     for r in db.scalars(select(Review).where(Review.user_id == user.id)).all():
         db.delete(r)
     for e in db.scalars(select(RoadmapEntry).where(RoadmapEntry.user_id == user.id)).all():
         db.delete(e)  # 로드맵 기록(체크·뺀 항목·직접 쓴 글)도 지움 (User 연결로도 지워지지만, 빠뜨리지 않게 직접 한 번 더)
+    for b in db.scalars(select(Bookmark).where(Bookmark.user_id == user.id)).all():
+        db.delete(b)  # 저장한 공고 기록도 지움
     db.delete(user)  # 관심 분야 연결과 보유 스펙도 함께 지워짐
     db.commit()
     resp = RedirectResponse("/?deleted=1", status_code=303)

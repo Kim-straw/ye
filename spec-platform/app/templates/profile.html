@@ -10,6 +10,7 @@
   <h1>{{ "내 정보" if user else "프로필 만들기" }}</h1>
   {% if user %}
     <p class="sub">{{ user.department.college }} · {{ user.grade }}학년 · {{ user.admission_year }}년 입학{% if user.login_id %} · 아이디 {{ user.login_id }}{% endif %}</p>
+    <p class="sub"><a href="/saved" style="margin-left:0">저장한 공고 보기 →</a></p>
   {% else %}
     <p class="sub">이미 아이디가 있나요? <a href="/login">로그인</a></p>
   {% endif %}
@@ -109,7 +110,7 @@
 <section class="sec">
 <h2>내 정보 삭제</h2>
 <form method="post" action="/profile/delete" class="form">
-  <p class="hint" style="margin:0">프로필, 후기, 로드맵 기록을 모두 지웁니다. 되돌릴 수 없어요.</p>
+  <p class="hint" style="margin:0">프로필, 후기, 로드맵 기록, 저장한 공고를 모두 지웁니다. 되돌릴 수 없어요.</p>
   <label class="check"><input type="checkbox" name="confirm" value="yes" required> <span>확인했고 삭제합니다</span></label>
   <button class="btn ghost" type="submit" style="margin:0">내 정보 삭제</button>
 </form>

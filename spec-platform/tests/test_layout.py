@@ -153,3 +153,45 @@ def test_login_has_no_social_or_fake_buttons():
     for word in ("카카오", "구글", "Google", "네이버로", "이메일로", "상담"):
         assert word not in html, word
     assert 'class="auth-panel"' in html and 'name="login_id"' in html and 'name="password"' in html
+
+
+def test_bookmarks_toggle_isolation_next_and_cleanup():
+    from sqlalchemy import select
+    from app import rss_import
+    from app.db import Bookmark, User
+    oid = add("저장할 공고", deadline=5)
+    anon = TestClient(app)
+    r = anon.post("/bookmarks/toggle", data={"opportunity_id": oid, "next": "/opportunities"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/profile/new"                   # 로그인 전 -> 프로필
+    a, b = login(), login()
+    assert a.post("/bookmarks/toggle", data={"opportunity_id": 999999, "next": "/"}, follow_redirects=False).status_code == 404
+    r = a.post("/bookmarks/toggle", data={"opportunity_id": oid, "next": "/opportunities?scope=외부&page=1"}, follow_redirects=False)
+    from urllib.parse import unquote
+    assert r.status_code == 303 and unquote(r.headers["location"]) == "/opportunities?scope=외부&page=1"
+    for bad in ("https://evil.example", "//evil.example", "/\\evil.example", "", "javascript:alert(1)"):
+        r = a.post("/bookmarks/toggle", data={"opportunity_id": oid, "next": bad}, follow_redirects=False)
+        assert r.headers["location"] == "/saved", bad                                         # 사이트 밖으로 보내지 않음
+        a.post("/bookmarks/toggle", data={"opportunity_id": oid, "next": "/"})                  # 다시 원래 상태(저장됨)로
+    assert "저장할 공고" in titles(a.get("/saved").text) and "저장할 공고" not in titles(b.get("/saved").text)   # 사람별로 따로
+    lst = a.get("/opportunities?scope=외부").text
+    assert re.search(r'value="%d">\s*<input type="hidden" name="next" value="/opportunities\?scope=%%EC%%99%%B8%%EB%%B6%%80">\s*<button type="submit" aria-pressed="true"' % oid, lst)
+    assert re.search(r'value="%d">.*?aria-pressed="false"' % oid, b.get("/opportunities?scope=외부").text, re.S)
+    assert 'action="/bookmarks/toggle"' not in anon.get("/opportunities?scope=외부").text      # 로그인 전에는 버튼 없음
+    assert 'aria-pressed="true"' in a.get(f"/opportunities/{oid}").text
+    a.post("/bookmarks/toggle", data={"opportunity_id": oid, "next": "/"})                      # 해제
+    assert titles(a.get("/saved").text) == []
+    # 공고가 지워지면 저장 기록도 같이 지워짐 (cleanup_outside가 지우는 글)
+    gone = add("[업체] 교직원 대상 안내", category="외부기관공고")
+    db = SessionLocal(); db.add(Bookmark(user_id=db.scalars(select(User.id)).first(), opportunity_id=gone)); db.commit(); db.close()
+    db = SessionLocal(); o = db.get(Opportunity, gone); o.source = "rss"; db.commit()
+    rss_import.cleanup_outside(db); db.close()
+    db = SessionLocal()
+    assert db.get(Opportunity, gone) is None                                                   # 거르는 글이라 지워짐
+    assert db.scalars(select(Bookmark).where(Bookmark.opportunity_id == gone)).first() is None
+    db.close()
+    # 내 정보 삭제 -> 내 저장 기록도 삭제
+    b.post("/bookmarks/toggle", data={"opportunity_id": oid, "next": "/"})
+    db = SessionLocal(); before = db.scalar(select(__import__("sqlalchemy").func.count(Bookmark.id))); db.close()
+    b.post("/profile/delete", data={"confirm": "yes"})
+    db = SessionLocal(); after = db.scalar(select(__import__("sqlalchemy").func.count(Bookmark.id))); db.close()
+    assert after == before - 1

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}저장한 공고 · 스펙로드{% endblock %}
+{% block content %}
+<header class="head stack">
+  <h1>저장한 공고</h1>
+  <p class="sub">최근에 저장한 순 · 총 {{ items | length }}개</p>
+</header>
+<div class="list">
+{% for o in items %}
+  {% with reasons = none, show_scope = true, meta = none, chips = none %}{% include "_card.html" %}{% endwith %}
+{% else %}
+  <p class="empty">아직 저장한 공고가 없어요. 목록에서 리본 버튼을 눌러 저장해 보세요</p>
+{% endfor %}
+</div>
+{% endblock %}

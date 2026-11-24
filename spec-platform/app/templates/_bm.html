@@ -1,0 +1,9 @@
+{# 저장(북마크) 버튼. 로그인했을 때만 그림. 누르면 POST 후 지금 화면으로 돌아옴. o = Opportunity, saved = 저장한 공고 id 모음 #}
+{% set on = o.id in saved %}
+<form method="post" action="/bookmarks/toggle" class="bm">
+  <input type="hidden" name="opportunity_id" value="{{ o.id }}">
+  <input type="hidden" name="next" value="{{ request.url.path }}{{ '?' ~ request.url.query if request.url.query }}">
+  <button type="submit" aria-pressed="{{ 'true' if on else 'false' }}" aria-label="{{ o.title }} {{ '저장 해제' if on else '저장' }}" title="{{ '저장 해제' if on else '저장' }}">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="{{ 'currentColor' if on else 'none' }}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z"/></svg>{% if label %}<span>{{ '저장됨' if on else '저장' }}</span>{% endif %}
+  </button>
+</form>

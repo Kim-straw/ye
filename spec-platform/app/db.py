@@ -119,6 +119,7 @@ class User(Base):
     specs: Mapped[list["UserSpec"]] = relationship(cascade="all, delete-orphan")
     # 로드맵 기록 (칸이 아니라 '연결'이라 users 테이블 구조는 그대로). 사용자를 지우면 같이 지워짐
     roadmap: Mapped[list["RoadmapEntry"]] = relationship(cascade="all, delete-orphan")
+    bookmarks: Mapped[list["Bookmark"]] = relationship(cascade="all, delete-orphan")
 
 
 class UserSpec(Base):
@@ -150,6 +151,19 @@ class Opportunity(Base):
     tags: Mapped[list[Tag]] = relationship(secondary=opportunity_tags)
     specs: Mapped[list[Spec]] = relationship(secondary=opportunity_specs)
     reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan", order_by="Review.id.desc()")
+    # 공고가 지워질 때(예: rss_import.cleanup_outside) 그 공고를 저장한 기록도 같이 지움 (Postgres 외래키 오류 방지)
+    bookmarks: Mapped[list["Bookmark"]] = relationship(cascade="all, delete-orphan", back_populates="opportunity")
+
+
+class Bookmark(Base):
+    """저장한 공고 (새 테이블). 한 사람이 같은 공고는 한 번만 저장"""
+    __tablename__ = "bookmarks"
+    __table_args__ = (UniqueConstraint("user_id", "opportunity_id", name="uq_bookmark_user_opp"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    opportunity_id: Mapped[int] = mapped_column(ForeignKey("opportunities.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    opportunity: Mapped["Opportunity"] = relationship(back_populates="bookmarks")
 
 
 class RoadmapEntry(Base):

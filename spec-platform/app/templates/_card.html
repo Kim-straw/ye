@@ -10,6 +10,9 @@
 {% set why = [] %}
 {# '최근 공고'는 섹션 제목의 '최근 순'과 겹쳐서 뺌. 오래된 글의 '원문에서 모집 여부 확인'은 사용자에게 필요해서 남김 #}
 {% for r in (reasons or []) %}{% set r = r[8:] if r.startswith('최근 공고 · ') else r %}{% if r not in ['학교 공지', '우리 학교 프로그램', '최근 공고'] and not (r.startswith('마감 ') and r.endswith('일 전')) %}{% if why.append(r) %}{% endif %}{% endif %}{% endfor %}
+{# 로그인 상태에서 saved(저장한 공고 id 모음)를 넘긴 목록만 저장 버튼을 붙임. 링크(a) 안에 폼을 넣을 수 없어 둘을 감싸는 칸을 둠 #}
+{% set can_save = user and saved is defined %}
+{% if can_save %}<div class="item-wrap">{% endif %}
 <a class="item" href="/opportunities/{{ o.id }}">
   <span class="mono" aria-hidden="true">{{ monogram(o) }}</span>
   <div class="item-main">
@@ -26,3 +29,4 @@
     <span class="item-dday">{{ o.posted_at.strftime('%m.%d') if o.posted_at.year == today().year else o.posted_at.strftime('%y.%m.%d') }}</span>
   {% endif %}
 </a>
+{% if can_save %}{% with label = false %}{% include "_bm.html" %}{% endwith %}</div>{% endif %}

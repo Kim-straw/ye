@@ -645,3 +645,19 @@ h2.sec-title { margin-top: var(--gap-sec); }
   .detail-side .deadline { margin-top: .6rem; }
   .detail-side .btn { margin-bottom: 0; }
 }
+
+/* ---------- 저장(북마크) 버튼 ---------- */
+.item-wrap { position: relative; }
+.item-wrap > .item { padding-right: 2.6rem; }
+.item-wrap:last-child > .item { border-bottom: 0; }
+.item-wrap .bm { position: absolute; right: -.5rem; bottom: .55rem; }
+.bm { margin: 0; }
+.bm button {
+  display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-width: 44px; min-height: 44px;
+  background: none; border: 0; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; border-radius: 4px;
+}
+.bm button:hover { color: var(--brand-ink); }
+.bm button[aria-pressed="true"] { color: var(--brand-ink); font-weight: 700; }
+.detail-side .bm { margin-top: .8rem; }
+.detail-side .bm button { width: 100%; border: 1px solid var(--line); }
+.detail-side .bm button[aria-pressed="true"] { border-color: var(--brand-ink); }

@@ -25,6 +25,7 @@
   <p class="deadline none">마감일은 원문에서 확인하세요</p>
 {% endif %}
 
+{% if user %}{% with label = true %}{% include "_bm.html" %}{% endwith %}{% endif %}
 {% if o.url %}
 <a class="btn" href="{{ o.url }}" target="_blank" rel="noopener">원문 공고 보기
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
