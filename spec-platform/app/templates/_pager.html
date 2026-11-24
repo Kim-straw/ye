@@ -1,0 +1,10 @@
+{# 쪽 번호 (20개씩). 링크는 지금 조건·정렬을 그대로 가져감. 한 쪽뿐이면 그리지 않음 #}
+{% if pg.pages > 1 %}
+<nav class="pager" aria-label="쪽 번호">
+  {% if pg.page > 1 %}<a href="{{ link(page=pg.page - 1) }}" rel="prev" aria-label="이전 쪽">‹</a>{% else %}<span class="off" aria-hidden="true">‹</span>{% endif %}
+  {% for n in pg.window %}
+    {% if n == pg.page %}<b aria-current="page">{{ n }}</b>{% else %}<a href="{{ link(page=n) }}">{{ n }}</a>{% endif %}
+  {% endfor %}
+  {% if pg.page < pg.pages %}<a href="{{ link(page=pg.page + 1) }}" rel="next" aria-label="다음 쪽">›</a>{% else %}<span class="off" aria-hidden="true">›</span>{% endif %}
+</nav>
+{% endif %}

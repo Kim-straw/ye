@@ -213,7 +213,7 @@ def test_recruit_tab():
     client.cookies.set("user_id", r.cookies["user_id"])
     mine = client.get("/recruit", params={"mine": "true"}).text
     assert "체험형 인턴" in mine and "현장실습 참여" not in mine  # 데이터 분야 학과 -> 데이터 글만
-    assert "기준</p>" in mine and 'aria-pressed="true"' in mine  # 내 기준 한 줄 + '내 전공 관련'이 켜진 표시
+    assert "기준</p>" in mine and 'name="mine" value="true" checked' in mine  # 내 기준 한 줄 + 필터 칸의 '내 전공 관련'이 켜진 표시
 
 
 def test_recruit_sector_and_region():

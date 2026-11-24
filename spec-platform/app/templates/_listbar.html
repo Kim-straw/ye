@@ -1,0 +1,15 @@
+{# 목록 위 한 줄: 검색창 → 총 개수 + 정렬. 검색해도 고른 필터·정렬은 숨은 칸으로 그대로 감 #}
+<form class="searchbar" method="get" action="{{ action }}" role="search">
+  {% for k, v in search_hidden %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <label class="search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+    <span class="sr">{{ title }} 검색</span>
+    <input type="search" name="q" value="{{ f.q }}" placeholder="{{ placeholder }}">
+  </label>
+</form>
+<div class="listbar">
+  <span class="count">총 <b>{{ pg.total }}</b>{{ unit }}</span>
+  <nav class="sorts" aria-label="정렬">
+    {% for v, label in sorts %}<a href="{{ link(sort=v) }}" class="{{ 'on' if v == sort }}" {{ 'aria-current=true' if v == sort }}>{{ label }}</a>{% endfor %}
+  </nav>
+</div>

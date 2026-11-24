@@ -1,6 +1,7 @@
 {# 목록 한 줄 (모든 목록이 같이 씀).
    o = Opportunity / reasons = 추천 이유(선택) / show_scope = 교내·대외가 섞인 목록이면 True / meta = 기관명 대신 보여 줄 보조 정보(선택)
-   위계: 제목(크고 굵게) > D-day(오른쪽, 마감 임박만 크림슨) > 보조 정보(작고 연한 회색 한 줄) #}
+   chips = 제목 아래 작은 꼬리표(분류·분야·지역 등, 선택)
+   위계: 기관 글자 동그라미(왼쪽) > 제목(크고 굵게) > D-day(오른쪽, 마감 임박만 크림슨) > 꼬리표·보조 정보(작게) #}
 {% set parts = [] %}
 {% if show_scope %}{% if parts.append('교내' if o.scope == '교내' else '대외') %}{% endif %}{% endif %}
 {% for m in (meta if meta else [display_host(o)]) %}{% if m %}{% if parts.append(m) %}{% endif %}{% endif %}{% endfor %}
@@ -10,8 +11,11 @@
 {# '최근 공고'는 섹션 제목의 '최근 순'과 겹쳐서 뺌. 오래된 글의 '원문에서 모집 여부 확인'은 사용자에게 필요해서 남김 #}
 {% for r in (reasons or []) %}{% set r = r[8:] if r.startswith('최근 공고 · ') else r %}{% if r not in ['학교 공지', '우리 학교 프로그램', '최근 공고'] and not (r.startswith('마감 ') and r.endswith('일 전')) %}{% if why.append(r) %}{% endif %}{% endif %}{% endfor %}
 <a class="item" href="/opportunities/{{ o.id }}">
+  <span class="mono" aria-hidden="true">{{ monogram(o) }}</span>
   <div class="item-main">
     <h3 class="item-title">{{ o.title }}</h3>
+    {% set tagged = (chips or []) | select | list %}
+    {% if tagged %}<p class="item-chips">{% for c in tagged %}<span>{{ c }}</span>{% endfor %}</p>{% endif %}
     <p class="item-meta">{{ parts | join(' · ') }}</p>
     {% if why %}<p class="item-why">{{ why | join(' · ') }}</p>{% endif %}
   </div>

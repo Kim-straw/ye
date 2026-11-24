@@ -1,37 +1,23 @@
 {% extends "base.html" %}
 {% block title %}인턴·채용 · 스펙로드{% endblock %}
+{% block page_class %}wide{% endblock %}
 {% block content %}
-<h1 class="sr">인턴·채용</h1>
+<h1 class="lp-title">인턴·채용</h1>
 {% include "_catbar.html" %}
-
-<form class="searchbar" method="get" action="/recruit" role="search">
-  {% for k, v in [('sector', sector), ('region', region), ('kind', kind), ('mine', 'true' if mine else ''), ('show_closed', 'true' if show_closed else '')] %}
-    {% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}
-  {% endfor %}
-  <label class="search">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
-    <span class="sr">검색</span>
-    <input type="search" name="q" value="{{ q }}" placeholder="회사·공고 검색">
-  </label>
-</form>
-
-<nav class="chips-x" aria-label="지역">
-  <a href="{{ link(region='') }}" class="{{ 'on' if not region }}" {{ 'aria-current=true' if not region }}>전체 지역</a>
-  {% for r in regions %}<a href="{{ link(region=r) }}" class="{{ 'on' if region == r }}" {{ 'aria-current=true' if region == r }}>{{ r }}</a>{% endfor %}
-</nav>
-<div class="toggles">
-  {% if user %}<a class="toggle {{ 'on' if mine }}" href="{{ link(mine='' if mine else 'true') }}" aria-pressed="{{ 'true' if mine else 'false' }}">내 전공 관련</a>{% endif %}
-  <a class="toggle {{ 'on' if show_closed }}" href="{{ link(show_closed='' if show_closed else 'true') }}" aria-pressed="{{ 'true' if show_closed else 'false' }}">마감·지난 공고 포함</a>
-  <span class="count">{{ items | length }}건</span>
-</div>
-{% if user and mine %}<p class="hint">{{ user.department.name }} · {{ my_tags | join(', ') if my_tags else '관심 분야 없음' }} 기준</p>{% endif %}
-
-<div class="list">
-{% for o in items %}
-  {% set rg = region_of(o) %}
-  {% with meta = [kind_of(o), sector_of(o), (rg if rg != '지역 미표기' else '')], reasons = none, show_scope = false %}{% include "_card.html" %}{% endwith %}
-{% else %}
-  <p class="empty">조건에 맞는 공고가 없어요</p>
-{% endfor %}
+<div class="lp">
+  <aside class="lp-side">{% with show_mine = user is not none %}{% include "_filters.html" %}{% endwith %}</aside>
+  <section class="lp-main" aria-label="인턴·채용 목록">
+    {% with placeholder = '회사·공고 검색' %}{% include "_listbar.html" %}{% endwith %}
+    {% if user and mine %}<p class="hint">{{ user.department.name }} · {{ my_tags | join(', ') if my_tags else '관심 분야 없음' }} 기준</p>{% endif %}
+    <div class="list">
+    {% for o in pg.items %}
+      {% set rg = region_of(o) %}
+      {% with meta = [display_host(o)], chips = [kind_of(o), sector_of(o), (rg if rg != '지역 미표기' else '')], reasons = none, show_scope = false %}{% include "_card.html" %}{% endwith %}
+    {% else %}
+      <p class="empty">조건에 맞는 공고가 없어요</p>
+    {% endfor %}
+    </div>
+    {% include "_pager.html" %}
+  </section>
 </div>
 {% endblock %}

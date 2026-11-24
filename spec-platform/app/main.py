@@ -12,14 +12,14 @@ from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import accounts, logic, roadmap, roadmap_data, roadmap_result, rss_import, security, seed
+from . import accounts, listing, logic, roadmap, roadmap_data, roadmap_result, rss_import, security, seed
 from .db import Department, Job, Opportunity, Review, RoadmapEntry, School, Spec, Tag, User, UserSpec, get_db
 
 BASE = Path(__file__).resolve().parent
@@ -48,6 +48,7 @@ app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=BASE / "templates")
 templates.env.globals["today"] = date.today
 templates.env.globals["display_host"] = logic.display_host
+templates.env.globals["monogram"] = logic.monogram
 
 COOKIE = "user_id"  # 손님 번호표 이름
 
@@ -92,10 +93,11 @@ def service_worker():
 
 def make_link(path: str, current: dict):
     """칩을 누를 때 쓸 주소 만들기: 지금 조건(current)은 그대로 두고 바꾼 값만 덮어씀. 빈 값은 주소에서 뺌.
-    예) 지금 ?q=인턴&sector=사기업 에서 link(region="서울") -> ?q=인턴&sector=사기업&region=서울"""
+    예) 지금 ?q=인턴&sector=사기업 에서 link(region="서울") -> ?q=인턴&sector=사기업&region=서울
+    값이 목록이면(?category=a&category=b) 같은 이름으로 여러 번 붙임. page는 따로 주지 않으면 빠짐(조건이 바뀌면 1쪽부터)"""
     def link(**change):
         params = {k: v for k, v in {**current, **change}.items() if v}
-        return path + ("?" + urlencode(params) if params else "")
+        return path + ("?" + urlencode(params, doseq=True) if params else "")
     return link
 
 
@@ -394,58 +396,87 @@ async def roadmap_paths(request: Request, db: Session = Depends(get_db), user: U
     return RedirectResponse("/roadmap/result#paths", status_code=303)
 
 
+def one_selected(values: list[str]) -> str:
+    """카테고리 바(폰) 하위 줄에 표시할 선택: 하나만 골랐을 때만 그 이름, 여러 개면 아무것도 표시 안 함"""
+    return values[0] if len(values) == 1 else ("*" if values else "")
+
+
+def list_view(request: Request, template: str, path: str, items: list, current: dict, *, sort: str, page: str,
+              extra: dict) -> HTMLResponse:
+    """목록 화면 3개가 같이 쓰는 마무리: 정렬 → 20개씩 자르기 → 링크·숨은 칸 만들기 → 그리기"""
+    pg = listing.paginate(listing.sort_items(items, sort), listing.parse_page(page))
+    link = make_link(path, {**current, "sort": sort})
+    filter_keys = ("category", "sector", "period", "region", "mine", "show_closed")
+    return templates.TemplateResponse(request, template, {
+        **extra, "pg": pg, "link": link, "sort": sort, "sorts": listing.SORTS, "periods": listing.PERIODS,
+        "action": path, "f": current, "regions": logic.REGIONS,
+        "active_filters": sum(1 for k in filter_keys if current.get(k)),
+        "search_hidden": listing.hidden_fields({**current, "sort": sort}, drop=("q",)),
+        "filter_hidden": listing.hidden_fields({k: current.get(k) for k in ("scope", "q")} | {"sort": sort}),
+        "reset_href": make_link(path, {"scope": current.get("scope", "")})(),
+    })
+
+
 @app.get("/opportunities", response_class=HTMLResponse)
-def opportunity_list(request: Request, scope: str = "", category: str = "", show_closed: bool = False,
+def opportunity_list(request: Request, scope: str = "", category: list[str] = Query([]), q: str = "", period: str = "",
+                     region: list[str] = Query([]), sort: str = "", page: str = "1", show_closed: bool = False,
                      db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    """대외활동(scope=외부)·교내 프로그램(scope=교내)·전체 목록. 분류는 여러 개 고를 수 있음(?category=a&category=b)"""
+    category, region = listing.clean(category), listing.clean(region)
+    period, sort = listing.norm_period(period), listing.norm_sort(sort)
     query = select(Opportunity)
     if scope:
         query = query.where(Opportunity.scope == scope)
     if category:
-        query = query.where(Opportunity.category == category)
+        query = query.where(Opportunity.category.in_(category))
     if not show_closed:
         query = query.where(logic.open_clause(date.today()))
-    items = sorted(db.scalars(query).all(), key=logic.sort_key)
-    link = make_link("/opportunities", {"scope": scope, "category": category, "show_closed": "true" if show_closed else ""})
-    # 하위 분류는 DB에 실제로 있는 분류 이름만 (교내·대외활동 각각). '전체'(scope 없음)에는 하위 줄이 없음
-    sub_names = sorted(set(db.scalars(select(Opportunity.category).where(Opportunity.scope == scope)))) if scope else []
-    catbar = build_catbar(scope or "all", show_closed, sub_names, category, lambda v: link(category=v))
-    return templates.TemplateResponse(request, "opportunities.html", {
-        "user": user, "items": items, "scope": scope, "category": category, "show_closed": show_closed,
-        "link": link, "catbar": catbar,
+    items = listing.narrow(list(db.scalars(query).all()), q=q, period=period, regions=region)
+    current = {"scope": scope, "q": q, "category": category, "period": period, "region": region,
+               "show_closed": "true" if show_closed else ""}
+    # 분류 선택지는 DB에 실제로 있는 이름만 (교내·대외활동 각각, 전체면 모두)
+    cat_query = select(Opportunity.category).distinct()
+    cat_names = sorted(set(db.scalars(cat_query.where(Opportunity.scope == scope) if scope else cat_query)) - {""})
+    link = make_link("/opportunities", current)
+    catbar = build_catbar(scope or "all", show_closed, cat_names if scope else [], one_selected(category),
+                          lambda v: link(category=v))
+    title = {"교내": "교내 프로그램", "외부": "대외활동"}.get(scope, "전체 활동")
+    return list_view(request, "opportunities.html", "/opportunities", items, current, sort=sort, page=page, extra={
+        "user": user, "scope": scope, "title": title, "catbar": catbar, "cat_names": cat_names, "unit": "개",
     })
 
 
 @app.get("/recruit", response_class=HTMLResponse)
-def recruit(request: Request, q: str = "", kind: str = "", sector: str = "", region: str = "", mine: bool = False,
+def recruit(request: Request, q: str = "", kind: str = "", sector: list[str] = Query([]), region: list[str] = Query([]),
+            category: list[str] = Query([]), period: str = "", sort: str = "", page: str = "1", mine: bool = False,
             show_closed: bool = False, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
-    """인턴·채용 칸: 취업·현장실습 공고를 분야·지역 칩으로 걸러 보기"""
+    """인턴·채용 칸: 취업·현장실습 공고를 분야·지역·분류·기간으로 걸러 보기"""
+    sector, region, category = listing.clean(sector), listing.clean(region), listing.clean(category)
+    period, sort = listing.norm_period(period), listing.norm_sort(sort)
     today = date.today()
-    items = [o for o in db.scalars(select(Opportunity)).all() if logic.is_recruit(o)]
-    if not show_closed:
-        items = [o for o in items if logic.is_open(o, today)]
+    every = [o for o in db.scalars(select(Opportunity)).all() if logic.is_recruit(o)]
+    cat_names = sorted({o.category for o in every} - {""})
+    items = every if show_closed else [o for o in every if logic.is_open(o, today)]
     if kind:  # 화면의 선택 칸은 없앴지만 예전 주소(?kind=...)가 깨지지 않게 남겨 둠
         items = [o for o in items if logic.recruit_kind(o) == kind]
     if sector:
-        items = [o for o in items if logic.recruit_sector(o) == sector]
-    if region:
-        items = [o for o in items if logic.recruit_region(o) == region]
-    words = q.strip().lower()
-    if words:
-        items = [o for o in items if words in f"{o.title} {o.host} {o.description}".lower()]
+        items = [o for o in items if logic.recruit_sector(o) in sector]
+    if category:
+        items = [o for o in items if o.category in category]
     if mine and user:
         my = logic.user_tag_ids(user)
         items = [o for o in items if any(t.id in my for t in o.tags)]
-    items.sort(key=logic.sort_key)
+    items = listing.narrow(items, q=q, period=period, regions=region, today=today)
     my_tags = []
     if user:
         my_tags = list(dict.fromkeys([t.name for t in user.department.tags] + [t.name for t in user.tags]))[:3]
-    link = make_link("/recruit", {"q": q, "kind": kind, "sector": sector, "region": region,
-                                  "mine": "true" if mine else "", "show_closed": "true" if show_closed else ""})
-    catbar = build_catbar("recruit", show_closed, logic.SECTORS, sector, lambda v: link(sector=v))
-    return templates.TemplateResponse(request, "recruit.html", {
-        "user": user, "items": items, "q": q, "kind": kind, "sector": sector, "region": region, "mine": mine,
-        "show_closed": show_closed, "my_tags": my_tags, "link": link, "catbar": catbar,
-        "sectors": logic.SECTORS, "regions": logic.REGIONS,
+    current = {"q": q, "kind": kind, "sector": sector, "region": region, "category": category, "period": period,
+               "mine": "true" if mine else "", "show_closed": "true" if show_closed else ""}
+    link = make_link("/recruit", current)
+    catbar = build_catbar("recruit", show_closed, logic.SECTORS, one_selected(sector), lambda v: link(sector=v))
+    return list_view(request, "recruit.html", "/recruit", items, current, sort=sort, page=page, extra={
+        "user": user, "title": "인턴·채용", "catbar": catbar, "cat_names": cat_names, "sectors": logic.SECTORS,
+        "mine": mine, "my_tags": my_tags, "unit": "건",
         "sector_of": logic.recruit_sector, "region_of": logic.recruit_region, "kind_of": logic.recruit_kind,
     })
 

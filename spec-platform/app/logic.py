@@ -118,6 +118,16 @@ def display_host(opp: Opportunity) -> str:
     return host
 
 
+def monogram(opp: Opportunity) -> str:
+    """목록 왼쪽 동그라미 안의 글자 한 개: 제목 맨 앞 [기관명]의 첫 글자 → 없으면 보여 주는 기관명(display_host)의 첫 글자.
+    회사 로고는 쓰지 않음(저작권·상표). 영문은 대문자로"""
+    for name in (employer(opp), display_host(opp), opp.category):
+        name = (name or "").strip().lstrip("[(（「").strip()
+        if name:
+            return name[0].upper()
+    return "·"
+
+
 def user_tag_ids(user: User) -> set[int]:
     """내 관심 태그 + 내 학과의 기본 태그"""
     return {t.id for t in user.tags} | {t.id for t in user.department.tags}

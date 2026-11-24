@@ -1,0 +1,34 @@
+{# 목록 필터 칸 (3개 목록 공통). 컴퓨터: 왼쪽에 늘 펼쳐진 칸 / 폰·태블릿: '필터'를 눌러 펼치는 접이식(details).
+   필요한 값: action, f(지금 조건), filter_hidden, cat_names, periods, regions, reset_href, active_filters
+   선택: sectors(인턴·채용만), show_mine(인턴·채용 + 로그인) #}
+<details class="filter" data-desktop-open{{ ' open' if active_filters }}>
+  <summary><span>필터</span>{% if active_filters %}<b class="filter-n">{{ active_filters }}</b>{% endif %}</summary>
+  <form method="get" action="{{ action }}" class="filter-form">
+    {% for k, v in filter_hidden %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    {% if sectors %}
+    <fieldset><legend>분야 <small>추정</small></legend>
+      {% for n in sectors %}<label class="fcheck"><input type="checkbox" name="sector" value="{{ n }}"{{ ' checked' if n in f.sector }}><span>{{ n }}</span></label>{% endfor %}
+    </fieldset>
+    {% endif %}
+    {% if cat_names %}
+    <fieldset><legend>분류</legend>
+      {% for n in cat_names %}<label class="fcheck"><input type="checkbox" name="category" value="{{ n }}"{{ ' checked' if n in f.category }}><span>{{ n }}</span></label>{% endfor %}
+    </fieldset>
+    {% endif %}
+    <fieldset><legend>기간</legend>
+      {% for v, label in periods %}<label class="fcheck"><input type="radio" name="period" value="{{ v }}"{{ ' checked' if v == f.period }}><span>{{ label }}</span></label>{% endfor %}
+    </fieldset>
+    <fieldset><legend>지역 <small>추정</small></legend>
+      {% for n in regions %}<label class="fcheck"><input type="checkbox" name="region" value="{{ n }}"{{ ' checked' if n in f.region }}><span>{{ n }}</span></label>{% endfor %}
+      <p class="fine">제목·기관·본문의 지역 이름으로 추정해요. 대부분의 기업 공고는 '지역 미표기'예요</p>
+    </fieldset>
+    <fieldset><legend>더 보기</legend>
+      {% if show_mine %}<label class="fcheck"><input type="checkbox" name="mine" value="true"{{ ' checked' if f.mine }}><span>내 전공 관련</span></label>{% endif %}
+      <label class="fcheck"><input type="checkbox" name="show_closed" value="true"{{ ' checked' if f.show_closed }}><span>마감·지난 공고 포함</span></label>
+    </fieldset>
+    <div class="filter-actions">
+      <button class="btn inline" type="submit">필터 적용</button>
+      <a class="btn inline ghost" href="{{ reset_href }}">초기화</a>
+    </div>
+  </form>
+</details>

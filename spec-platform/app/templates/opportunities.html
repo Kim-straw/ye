@@ -1,19 +1,22 @@
 {% extends "base.html" %}
-{% block title %}활동 · 스펙로드{% endblock %}
+{% block title %}{{ title }} · 스펙로드{% endblock %}
+{% block page_class %}wide{% endblock %}
 {% block content %}
-{# 페이지 제목은 카테고리 바의 선택 항목이 대신함 (같은 말을 두 번 크게 보여 주지 않도록 제목은 화면 읽기 프로그램용으로만) #}
-<h1 class="sr">활동</h1>
+{# 목록 틀(3개 목록 공통): 폰은 카테고리 바 → 검색 → 접이식 필터 → 목록 / 컴퓨터는 왼쪽 필터 + 오른쪽 목록 #}
+<h1 class="lp-title">{{ title }}</h1>
 {% include "_catbar.html" %}
-<div class="toggles">
-  <a class="toggle {{ 'on' if show_closed }}" href="{{ link(show_closed='' if show_closed else 'true') }}" aria-pressed="{{ 'true' if show_closed else 'false' }}">마감·지난 공지 포함</a>
-  <span class="count">{{ items | length }}개</span>
-</div>
-
-<div class="list">
-{% for o in items %}
-  {% with reasons = none, show_scope = not scope, meta = none %}{% include "_card.html" %}{% endwith %}
-{% else %}
-  <p class="empty">조건에 맞는 활동이 없어요</p>
-{% endfor %}
+<div class="lp">
+  <aside class="lp-side">{% include "_filters.html" %}</aside>
+  <section class="lp-main" aria-label="{{ title }} 목록">
+    {% with placeholder = '제목·기관 검색' %}{% include "_listbar.html" %}{% endwith %}
+    <div class="list">
+    {% for o in pg.items %}
+      {% with reasons = none, show_scope = not scope, meta = none, chips = [o.category] %}{% include "_card.html" %}{% endwith %}
+    {% else %}
+      <p class="empty">조건에 맞는 활동이 없어요</p>
+    {% endfor %}
+    </div>
+    {% include "_pager.html" %}
+  </section>
 </div>
 {% endblock %}
