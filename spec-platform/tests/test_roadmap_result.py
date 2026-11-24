@@ -85,7 +85,8 @@ def test_result_page_for_every_grade():
         assert [i + 1 for i, s in enumerate(steps) if s] == [now]         # 현재 학년만 강조 (6학년 -> 4학년)
         assert re.search(rf'<details class="rs-grade" id="rs-{now}" open>', page)
     assert TestClient(app).get("/roadmap/result", follow_redirects=False).headers["location"] == "/profile/new"
-    assert 'href="/roadmap/result">결과 보기' in make_user(nickname="링크").get("/roadmap").text
+    rm = make_user(nickname="링크").get("/roadmap").text
+    assert re.search(r'href="/roadmap/result" class="[^"]*" >결과 보기', rm) and 'class="rm-banner" href="/roadmap/result"' in rm
 
 
 def chips(page):

@@ -97,10 +97,10 @@ def progress(c, grade=None):
 
 
 def overview(c):
-    """한눈에 보기 줄: {학년: (done, total)}"""
+    """단계 표시줄(예전 한눈에 보기 자리): {학년: (done, total)}"""
     html = c.get("/roadmap").text
     return {int(m.group(1)): (int(m.group(2)), int(m.group(3)))
-            for m in re.finditer(r'<span>(\d)학년</span><b>(\d+)<small>/(\d+)</small></b>', html)}
+            for m in re.finditer(r'<span class="step-sub">(\d)학년 · (\d+)/(\d+)</span>', html)}
 
 
 def setup_function():

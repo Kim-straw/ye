@@ -1,0 +1,11 @@
+{# 로드맵·결과 화면 공통 왼쪽 메뉴. 컴퓨터: 세로 목록 / 폰·태블릿: 위쪽 가로 탭.
+   side = 선택 표시할 칸: "all" / 1~4 / "result" #}
+<nav class="rm-side-nav" aria-label="로드맵 메뉴">
+  {% set links = [("all", "/roadmap?open=all", "전체 보기")] %}
+  {% for g in [1, 2, 3, 4] %}{% if links.append((g, "/roadmap?open=" ~ g ~ "#grade-" ~ g, g ~ "학년")) %}{% endif %}{% endfor %}
+  {% if links.append(("result", "/roadmap/result", "결과 보기")) %}{% endif %}
+  {% if links.append(("paths", "/roadmap/result#paths", "진로 방향")) %}{% endif %}
+  {% for key, href, label in links %}
+  <a href="{{ href }}" class="{{ 'on' if key == side }}" {{ 'aria-current=page' if key == side }}>{{ label }}{% if key == user_grade %} <em>지금</em>{% endif %}</a>
+  {% endfor %}
+</nav>

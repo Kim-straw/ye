@@ -305,8 +305,10 @@ def opened_grades(user: User, open_: str) -> set[int]:
 def render_roadmap(request: Request, db: Session, user: User, open_: str = "", error: str = "", draft: str = "",
                    draft_grade: int | None = None, status: int = 200):
     plan = roadmap.plan_for(db, user)
+    side = "all" if open_ == "all" else (roadmap.parse_grade(open_) or plan.grade)  # 왼쪽 메뉴에서 선택 표시할 칸
     return templates.TemplateResponse(request, "roadmap.html", {
         "user": user, "plan": plan, "opened": opened_grades(user, open_), "all_open": open_ == "all",
+        "side": side, "stages": roadmap.STAGES,
         # 추가 칸의 학년 기본값: 오류로 다시 그릴 때는 고른 학년, 아니면 지금 열어서 작업 중인 학년(open), 없으면 현재 학년
         "error": error, "draft": draft, "draft_grade": draft_grade or roadmap.parse_grade(open_) or plan.grade,
         "recs": logic.recommend(db, user, limit=3),  # 로드맵과 이어지는 실제 공고 (가짜 공고를 만들지 않음)
@@ -376,7 +378,7 @@ def roadmap_delete(key: str = Form(...), db: Session = Depends(get_db), user: Us
 def render_result(request: Request, db: Session, user: User, error: str = "", status: int = 200):
     r = roadmap_result.result_for(db, user)
     return templates.TemplateResponse(request, "roadmap_result.html", {
-        "user": user, "r": r, "error": error, "paths_all": roadmap_data.PATHS,
+        "user": user, "r": r, "error": error, "paths_all": roadmap_data.PATHS, "side": "result",
         "recruit_link": lambda p: "/recruit?" + urlencode(p["link"]),  # 관련 공고 보기: 기존 인턴·채용 검색 재사용
     }, status_code=status)
 

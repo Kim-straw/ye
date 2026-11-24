@@ -21,6 +21,7 @@ from .seed import DEPARTMENTS, TAGS
 DEPT_TAG_ORDER = {name: tags for _college, name, tags in DEPARTMENTS}
 
 GRADES = (1, 2, 3, 4)
+STAGES = {1: "탐색", 2: "익히기", 3: "경험", 4: "지원 준비"}  # 학년별 단계 이름 (로드맵 위 단계 표시줄)
 CUSTOM_PREFIX = "custom:"
 CUSTOM_RE = re.compile(r"custom:(?:g([1-4]):)?[0-9a-f]{16}")   # 새 형식(학년 있음)과 예전 형식(학년 없음) 둘 다
 TEXT_MAX = 60
@@ -84,6 +85,16 @@ class Plan:
     @property
     def hidden(self) -> list[Item]:
         return [i for s in self.sections for i in s.hidden]
+
+    @property
+    def percent(self) -> int:
+        """이번 학년 진행률 (항목이 없으면 0)"""
+        return round(self.done * 100 / self.total) if self.total else 0
+
+    @property
+    def next_items(self) -> list[Item]:
+        """'다음 단계는?' 카드: 다음 학년 구역에 보이는 항목 앞 3개. 4학년(5·6학년 포함)은 다음이 없어서 빈 목록"""
+        return self.sections[self.grade].items[:3] if self.grade < 4 else []
 
 
 def grade_of(user: User) -> int:

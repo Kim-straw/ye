@@ -94,3 +94,28 @@ def test_recruit_filters_and_monogram():
     assert '<span class="mono" aria-hidden="true">한</span>' in html and '<span class="mono" aria-hidden="true">네</span>' in html
     assert logic.monogram(Opportunity(title="공지", host="career.korea.ac.kr", category="취업")) == "취"
     assert logic.monogram(Opportunity(title="[kakao] 인턴", host="", category="")) == "K"
+
+
+def test_roadmap_stepper_next_cards_and_sidebar_for_every_grade():
+    for grade, now, stage in [(1, 1, "탐색"), (2, 2, "익히기"), (3, 3, "경험"), (4, 4, "지원 준비"), (6, 4, "지원 준비")]:
+        c = login(grade=grade)
+        html = c.get("/roadmap").text
+        assert f"<b>현재 단계 {now}/4</b><span class=\"stepper-stage\">{stage}</span>" in html, grade
+        steps = re.findall(r'<li class="step( done)?( now)?">', html)
+        assert [bool(d) for d, _ in steps] == [g < now for g in (1, 2, 3, 4)]       # 지난 단계만 채움
+        assert [bool(n) for _, n in steps] == [g == now for g in (1, 2, 3, 4)]      # 지금 단계 하나만
+        cards = re.findall(r'<a class="next-card" href="/roadmap\?open=(\d)#([^"]+)">', html)
+        if now == 4:
+            assert cards == [] and 'id="next"' not in html                           # 4학년(5·6학년)은 다음 단계 없음
+        else:
+            assert len(cards) == 3 and {g for g, _ in cards} == {str(now + 1)}
+            sec = re.search(rf'<details class="rm-grade" id="grade-{now + 1}">(.*?)</details>', html, re.S).group(1)
+            assert [a for _, a in cards] == re.findall(r'id="(item-[^"]+)"', sec)[:3]   # 다음 학년 앞 3개 그대로
+        side = re.search(r'<nav class="rm-side-nav".*?</nav>', html, re.S).group(0)
+        assert re.findall(r'href="([^"]+)"', side) == ["/roadmap?open=all", "/roadmap?open=1#grade-1", "/roadmap?open=2#grade-2",
+                                                      "/roadmap?open=3#grade-3", "/roadmap?open=4#grade-4", "/roadmap/result", "/roadmap/result#paths"]
+        assert re.search(rf'href="/roadmap\?open={now}#grade-{now}" class="on"', side)
+        assert 'class="rm-banner" href="/roadmap/result"' in html and "상담" not in html
+    c = login(grade=2)
+    assert re.search(r'href="/roadmap\?open=all" class="on"', c.get("/roadmap?open=all").text)
+    assert re.search(r'href="/roadmap/result" class="on"', c.get("/roadmap/result").text)

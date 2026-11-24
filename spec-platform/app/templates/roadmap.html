@@ -1,22 +1,35 @@
 {% extends "base.html" %}
 {% block title %}로드맵 · 스펙로드{% endblock %}
+{% block page_class %}wide{% endblock %}
 {% block content %}
 {# 한 페이지에 1~4학년. 위계: 제목 > 한눈에 보기(학년별 진행도) > 학년 구역 > 항목.
    구역 펼침은 서버가 정함(내 현재 학년 + 주소의 open). 체크·빼기·추가는 모두 폼(POST)이라 자바스크립트 없이 동작 #}
+<div class="rm-layout">
+<aside class="rm-aside">{% with user_grade = plan.grade %}{% include "_rm_side.html" %}{% endwith %}</aside>
+<div class="rm-main">
 <header class="head stack">
-  <h1>로드맵</h1>
+  <h1>나의 로드맵</h1>
   <p class="sub">{{ user.department.name }}{% if plan.tags %} · {{ plan.tags | join(', ') }}{% endif %} <a href="/profile/new">바꾸기</a></p>
 </header>
 
-<nav class="rm-overview" aria-label="학년별 진행도">
-  {% for s in plan.sections %}
-  <a href="/roadmap?open={{ s.grade }}#grade-{{ s.grade }}" class="{{ 'now' if s.current }}" {{ 'aria-current=true' if s.current }}>
-    <span>{{ s.grade }}학년</span><b>{{ s.done }}<small>/{{ s.total }}</small></b>
-  </a>
-  {% endfor %}
-</nav>
+{# 단계 표시줄: 1학년 탐색 → 2학년 익히기 → 3학년 경험 → 4학년 지원 준비. 지난 단계는 채운 점, 지금 단계는 크림슨 #}
+<section class="stepper" aria-label="현재 단계">
+  <p class="stepper-head"><b>현재 단계 {{ plan.grade }}/4</b><span class="stepper-stage">{{ stages[plan.grade] }}</span>
+    <span class="stepper-count">이번 학년 {{ plan.done }}/{{ plan.total }}</span></p>
+  <ol class="steps">
+    {% for s in plan.sections %}
+    <li class="step{{ ' done' if s.grade < plan.grade }}{{ ' now' if s.current }}">
+      <a href="/roadmap?open={{ s.grade }}#grade-{{ s.grade }}" {{ 'aria-current=step' if s.current }}>
+        <span class="step-dot" aria-hidden="true">{{ s.grade }}</span>
+        <span class="step-name">{{ stages[s.grade] }}</span>
+        <span class="step-sub">{{ s.grade }}학년 · {{ s.done }}/{{ s.total }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+  <div class="step-bar" role="img" aria-label="이번 학년 진행률 {{ plan.percent }}%"><i style="width: {{ plan.percent }}%"></i></div>
+</section>
 <p class="rm-switch">
-  <a class="rm-result-link" href="/roadmap/result">결과 보기 <span aria-hidden="true">→</span></a>
   {% if all_open %}<a href="/roadmap">현재 학년만 보기</a>{% else %}<a href="/roadmap?open=all">모두 펼치기</a>{% endif %}
 </p>
 
@@ -46,6 +59,26 @@
   </div>
 </details>
 {% endfor %}
+
+{% if plan.next_items %}
+<section class="sec" id="next">
+  <h2>다음 단계는? <small>{{ plan.grade + 1 }}학년 · {{ stages[plan.grade + 1] }}</small></h2>
+  <div class="next-cards">
+    {% for it in plan.next_items %}
+    <a class="next-card" href="/roadmap?open={{ it.grade }}#{{ it.anchor }}">
+      <span class="next-n">{{ loop.index }}</span>
+      <span class="next-title">{{ it.title }}</span>
+      <span class="next-go">미리 보기 <span aria-hidden="true">→</span></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<a class="rm-banner" href="/roadmap/result">
+  <span><b>내 로드맵 결과 보기</b><small>1~4학년 진행도와 진로 방향별 할 일을 한 화면에</small></span>
+  <span class="rm-banner-go" aria-hidden="true">→</span>
+</a>
 
 <section class="sec" id="add">
   <h2>내 항목 추가</h2>
@@ -88,4 +121,6 @@
 {% endif %}
 
 <p class="fine center" style="margin-top:var(--gap-sec)">일반적인 가이드예요. 학교 공식 로드맵이 아니니 내 상황에 맞게 넣고 빼세요.</p>
+</div>
+</div>
 {% endblock %}

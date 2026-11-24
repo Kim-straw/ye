@@ -1,6 +1,14 @@
 {% extends "base.html" %}
-{% block title %}내 로드맵 결과 · 스펙로드{% endblock %}
+{% block title %}내 로드맵 결과 · 스펙로드</div>
+</div>
+{% endblock %}
+{% block page_class %}wide</div>
+</div>
+{% endblock %}
 {% block content %}
+<div class="rm-layout">
+<aside class="rm-aside">{% with user_grade = r.grade %}{% include "_rm_side.html" %}{% endwith %}</aside>
+<div class="rm-main">
 {# 계산은 roadmap_result.result_for가 하고 여기서는 그리기만. 위계: 제목 > 타임라인 도식 > 지금 할 일 > 학년별 정리 > 진로 방향 가이드 #}
 <header class="head stack">
   <h1>내 로드맵 결과</h1>
@@ -81,4 +89,6 @@
 </section>
 
 <p class="fine center" style="margin-top:var(--gap-sec)">일반적인 가이드예요. 학교 공식 안내가 아니며, 채용·진학 조건은 해당 기관 공고에서 꼭 확인하세요.</p>
+</div>
+</div>
 {% endblock %}
