@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="112" fill="#862633"/>
-  <path d="M120 360 L220 260 L290 320 L392 176" fill="none" stroke="#ffffff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="392" cy="176" r="34" fill="#fbe6ec"/>
+  <g fill="#ffffff" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif" font-weight="800" text-anchor="middle">
+    <text x="256" y="238" font-size="138" letter-spacing="-6">스펙</text>
+    <text x="256" y="384" font-size="138" letter-spacing="-6">로드</text>
+  </g>
 </svg>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#862633">
+<title>스펙로드</title>
+<!-- 시작(로딩) 화면: 서버가 잠들어 있어 응답이 늦을 때 서비스 워커(sw.js)가 폰에 저장해 둔 이 파일을 대신 보여 줌.
+     폰에 저장되는 파일이라 개인 정보는 절대 넣지 않음. 다른 주소로 보내지 않고, 서버가 깨어나면 같은 주소를 다시 불러옴. -->
+<style>
+  :root { --brand: #862633; --brand-deep: #5e1a23; --on: #ffffff; --on-soft: rgba(255, 255, 255, .72); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    min-height: 100dvh; background: var(--brand); color: var(--on); overflow: hidden;
+    font-family: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    display: grid; grid-template-rows: auto 1fr auto;
+    padding: max(2.4rem, env(safe-area-inset-top)) max(1.6rem, env(safe-area-inset-right)) max(1.6rem, env(safe-area-inset-bottom)) max(1.6rem, env(safe-area-inset-left));
+    word-break: keep-all;
+  }
+  .kicker { margin: 0; font-size: .82rem; font-weight: 500; letter-spacing: .02em; color: var(--on-soft); }
+  h1 { margin: 1rem 0 0; font-size: clamp(1.8rem, 8.4vw, 2.7rem); font-weight: 800; line-height: 1.25; letter-spacing: -0.04em; }
+  h1 span { display: block; white-space: nowrap; }  /* 문구는 정한 3줄 그대로 (폭이 좁아도 줄이 더 꺾이지 않게) */
+  .road { position: fixed; top: 18%; right: -8px; width: 72px; height: 58%; }   /* 오른쪽 가장자리: 1→4학년 점과 선 */
+  .foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+  .mark b { display: block; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.04em; }
+  .mark span { font-size: .72rem; color: var(--on-soft); }
+  .status { position: fixed; left: 0; right: 0; bottom: max(5.6rem, calc(env(safe-area-inset-bottom) + 5rem)); text-align: center; font-size: .82rem; color: var(--on-soft); padding: 0 1.6rem; }
+  .bar { display: block; width: 120px; height: 3px; margin: .7rem auto 0; border-radius: 2px; background: rgba(255, 255, 255, .25); overflow: hidden; position: relative; }
+  .bar i { position: absolute; top: 0; bottom: 0; width: 40%; background: var(--on); border-radius: 2px; animation: slide 1.2s ease-in-out infinite; }
+  @keyframes slide { from { left: -40%; } to { left: 100%; } }
+  body.stalled .bar { display: none; }
+  @media (prefers-reduced-motion: reduce) { .bar i { animation: none; left: 30%; } }
+</style>
+</head>
+<body id="splash">
+  <p class="kicker">교내 프로그램 · 대외활동 · 인턴·채용</p>
+  <h1><span>학교 프로그램부터</span><span>인턴·채용까지</span><span>한 번에</span></h1>
+  <svg class="road" viewBox="0 0 72 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <path d="M40 10 C 10 110, 62 170, 34 260 S 46 360, 40 392" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="40" cy="14" r="9" fill="#ffffff"/>
+    <circle cx="27" cy="120" r="9" fill="rgba(255,255,255,.75)"/>
+    <circle cx="44" cy="250" r="9" fill="rgba(255,255,255,.55)"/>
+    <circle cx="40" cy="386" r="9" fill="rgba(255,255,255,.35)"/>
+  </svg>
+  <div class="foot">
+    <div class="mark"><b>스펙로드</b><span>비공식 학생 프로젝트</span></div>
+  </div>
+  <p class="status" role="status"><span id="msg">서버를 깨우는 중이에요. 최대 1분쯤 걸릴 수 있어요</span><span class="bar"><i></i></span></p>
+  <script>
+    // 2초마다 서버 상태(/healthz)를 확인하고, 깨어나면 지금 주소를 다시 불러옴(다른 주소로 보내지 않음).
+    // 90초가 지나도 안 깨어나면 안내를 바꾸고 멈춤(무한 재시도 금지).
+    (function () {
+      var msg = document.getElementById("msg"), stopped = false;
+      function stop() {
+        stopped = true;
+        msg.textContent = "연결이 지연되고 있어요. 잠시 후 다시 열어 주세요";
+        document.body.classList.add("stalled");
+      }
+      function check() {
+        if (stopped) return;
+        fetch("/healthz", { cache: "no-store" })
+          .then(function (r) { if (stopped) return; if (r.ok) location.reload(); else setTimeout(check, 2000); })
+          .catch(function () { if (!stopped) setTimeout(check, 2000); });
+      }
+      setTimeout(stop, 90000);
+      setTimeout(check, 2000);
+    })();
+  </script>
+</body>
+</html>
