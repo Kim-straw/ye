@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}내 정보 · 스펙로드{% endblock %}
+{% block page_class %}wide{% endblock %}
 {% block content %}
+<div class="auth">
+{% include "_auth_panel.html" %}
+<section class="auth-form">
 {# pf = 저장에 실패했을 때 다시 채워 줄 입력값 #}
 <header class="head stack">
   <h1>{{ "내 정보" if user else "프로필 만들기" }}</h1>
@@ -111,4 +115,6 @@
 </form>
 </section>
 {% endif %}
+</section>
+</div>
 {% endblock %}

@@ -119,3 +119,37 @@ def test_roadmap_stepper_next_cards_and_sidebar_for_every_grade():
     c = login(grade=2)
     assert re.search(r'href="/roadmap\?open=all" class="on"', c.get("/roadmap?open=all").text)
     assert re.search(r'href="/roadmap/result" class="on"', c.get("/roadmap/result").text)
+
+
+def test_home_hero_counts_and_greeting():
+    add("열린 대외", deadline=5); add("지난 대외", deadline=-1)
+    add("열린 교내", scope="교내", category="비교과", deadline=3)
+    add("교내 인턴 모집", scope="교내", category="현장실습", deadline=4)
+    db = SessionLocal()
+    from sqlalchemy import func, select
+    from app import logic
+    ext = db.scalar(select(func.count(Opportunity.id)).where(Opportunity.scope == "외부", logic.open_clause(date.today())))
+    camp = db.scalar(select(func.count(Opportunity.id)).where(Opportunity.scope == "교내", logic.open_clause(date.today())))
+    rec = sum(1 for o in db.scalars(select(Opportunity)) if logic.is_recruit(o) and logic.is_open(o))
+    db.close()
+    c = TestClient(app)
+    html = c.get("/").text
+    assert "전공에서 시작하는<br>나만의 진로 지도" in html and "1분 만에 시작하기" in html and 'class="motif' in html
+    cards = re.findall(r'<a class="svc-card" href="([^"]+)">.*?<b>([^<]+)</b><span>([^<]+)</span>', html, re.S)
+    assert cards == [("/roadmap", "로드맵", "1~4학년 할 일"), ("/opportunities?scope=외부", "대외활동", f"열린 공고 {ext}건"),
+                     ("/recruit", "인턴·채용", f"열린 공고 {rec}건"), ("/opportunities?scope=교내", "교내 프로그램", f"열린 공고 {camp}건")]
+    assert f"총 <b>{ext}</b>개" in c.get("/opportunities?scope=외부").text                       # 카드 숫자 = 목록 개수
+    assert f"총 <b>{rec}</b>건" in c.get("/recruit").text and f"총 <b>{camp}</b>개" in c.get("/opportunities?scope=교내").text
+    u = login(grade=3)
+    page = u.get("/").text
+    total = int(re.search(r'<span class="step-sub">3학년 · 0/(\d+)</span>', u.get("/roadmap").text).group(1))
+    assert f"틀님, 지금 할 일 {total}개" in page and "내 로드맵 보기" in page and "1분 만에 시작하기" not in page
+    assert f"이번 학년 0/{total} 완료" in page
+    assert page.count('<section class="') <= 4                                                      # 구역 4개 이하
+
+
+def test_login_has_no_social_or_fake_buttons():
+    html = TestClient(app).get("/login").text
+    for word in ("카카오", "구글", "Google", "네이버로", "이메일로", "상담"):
+        assert word not in html, word
+    assert 'class="auth-panel"' in html and 'name="login_id"' in html and 'name="password"' in html

@@ -1,0 +1,9 @@
+{# 1→4학년 점·선 그림 (사진·로고 대신 쓰는 장식). now = 강조할 학년(없으면 0), dark = 크림슨 바탕 위에 그릴 때 #}
+<svg class="motif{{ ' on-dark' if dark }}" viewBox="0 0 320 120" role="img" aria-label="1학년부터 4학년까지 이어지는 진로 지도 그림" preserveAspectRatio="xMidYMid meet">
+  <path class="motif-line" d="M30 88 C 90 88, 90 40, 120 40 S 170 80, 200 70 S 260 24, 290 30" fill="none" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/>
+  {% for x, y in [(30, 88), (120, 40), (200, 70), (290, 30)] %}
+  <circle class="motif-dot{{ ' now' if loop.index == now }}" cx="{{ x }}" cy="{{ y }}" r="{{ 13 if loop.index == now else 10 }}"/>
+  <text class="motif-n" x="{{ x }}" y="{{ y + 4 }}" text-anchor="middle">{{ loop.index }}</text>
+  <text class="motif-label" x="{{ x }}" y="{{ y + 32 if y < 80 else y - 22 }}" text-anchor="middle">{{ ['탐색', '익히기', '경험', '지원 준비'][loop.index0] }}</text>
+  {% endfor %}
+</svg>

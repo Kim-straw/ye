@@ -105,7 +105,7 @@ def test_home_tabs_and_intro_and_search():
     anon = TestClient(app)
     page = anon.get("/").text
     assert 'class="home-intro"' in page and "1분 만에 시작하기" in page          # 소개 블록은 로그인 전만
-    assert re.search(r'<form class="searchbar" method="get" action="/recruit"', page) and 'name="q"' in page
+    assert 'class="icon-btn" href="/recruit" aria-label="공고 검색"' in page       # 검색은 상단 바 아이콘(모든 화면)으로 옮김
     assert 'href="/?tab=mine#feed"' not in page                                   # 내 분야 탭은 로그인해야
     assert re.search(r'href="/\?tab=new#feed" class="on"', anon.get("/?tab=hacker").text)   # 모르는 값 -> 새 공고
     assert re.search(r'href="/\?tab=new#feed" class="on"', anon.get("/?tab=mine").text)     # 로그인 전 mine -> 새 공고

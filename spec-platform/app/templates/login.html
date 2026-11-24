@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 {% block title %}로그인 · 스펙로드{% endblock %}
+{% block page_class %}wide{% endblock %}
 {% block content %}
+{# 나눈 화면: 왼쪽 크림슨 패널 + 오른쪽 로그인 칸. 로그인 방식은 아이디·비밀번호 하나뿐 (소셜 로그인 없음) #}
+<div class="auth">
+{% include "_auth_panel.html" %}
+<section class="auth-form">
 <header class="head stack">
   <h1>로그인</h1>
+  <p class="sub">아이디와 비밀번호로 로그인해요</p>
 </header>
 
 {# 비밀번호는 주소(URL)에 남지 않도록 POST 본문으로만 보냄 #}
@@ -19,4 +25,6 @@
 
 <p class="hint center" style="margin-top:1.2rem">처음이신가요? <a href="/profile/new">프로필 만들기</a></p>
 <p class="fine center">비밀번호를 잊으면 새 프로필을 만들어야 해요</p>
+</section>
+</div>
 {% endblock %}

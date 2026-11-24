@@ -1,16 +1,23 @@
 {% extends "base.html" %}
 {% block title %}{{ o.title }} · 스펙로드{% endblock %}
+{% block page_class %}wide{% endblock %}
 {% block content %}
 {# 위계: 제목 > 마감(크게) > 원문 버튼 > 본문 > 보조 정보 > 후기. 값이 없는 칸("정보 없음")은 만들지 않음 #}
 <a class="back" href="/opportunities">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>활동</a>
 
+{# 컴퓨터: 왼쪽 본문 + 오른쪽 요약 칸(마감·원문 버튼, 스크롤해도 따라옴) / 폰: 제목 → 요약 → 본문 순서 한 단 #}
+<div class="detail">
+<header class="detail-head">
 <h1 class="detail-title">{{ o.title }}</h1>
 {% set parts = ['교내' if o.scope == '교내' else '대외', display_host(o)] %}
 {% if o.posted_at %}{% if parts.append(o.posted_at.strftime('%Y.%m.%d') ~ (' 등록' if o.source == 'manual' else ' 게시')) %}{% endif %}{% endif %}
 {% if o.is_sample %}{% if parts.append('샘플') %}{% endif %}{% endif %}
 <p class="item-meta wrap">{{ parts | select | join(' · ') }}</p>
+</header>
 
+<aside class="detail-side" aria-label="요약">
+<p class="side-host"><span class="mono" aria-hidden="true">{{ monogram(o) }}</span><span>{{ display_host(o) or o.category }}</span></p>
 {% if o.deadline %}
   {% set left = (o.deadline - today()).days %}
   <p class="deadline"><b class="{{ 'urgent' if 0 <= left <= 7 }}">{{ '마감됨' if left < 0 else ('D-' ~ left if left > 0 else 'D-DAY') }}</b><span>{{ o.deadline.strftime('%Y.%m.%d') }} 마감</span></p>
@@ -23,6 +30,9 @@
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
 {% endif %}
 
+</aside>
+
+<div class="detail-main">
 {% if o.description %}<p class="detail-body">{{ o.description }}</p>{% endif %}
 
 {# 값이 있는 것만 한 줄로 #}
@@ -59,4 +69,6 @@
 <p class="hint"><a href="/profile/new">프로필</a>을 만들면 후기를 남길 수 있어요</p>
 {% endif %}
 </section>
+</div>
+</div>
 {% endblock %}

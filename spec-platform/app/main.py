@@ -124,7 +124,7 @@ def build_catbar(active: str, show_closed: bool, sub_names: list[str], sub_selec
 # ================= 화면 (HTML) =================
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, tab: str = "new", db: Session = Depends(get_db), user: User | None = Depends(current_user)):
-    """홈: 검색창 → 바로가기 → 마감 임박(가로로 넘겨 보기) → 탭이 있는 공고 목록. 모두 DB의 실제 공고만(샘플 제외)"""
+    """홈: 소개(로그인 전)·인사(로그인 후) → 바로가기 카드 4개(실제 개수) → 마감 임박(가로로 넘겨 보기) → 탭이 있는 공고 목록"""
     today = date.today()
     real_open = select(Opportunity).where(Opportunity.is_sample.is_(False), logic.open_clause(today))
     # 마감 임박: 마감일이 있는 열린 공고를 마감 가까운 순으로 5개 (규칙은 기존 open_clause·sort_key 그대로)
@@ -145,8 +145,17 @@ def home(request: Request, tab: str = "new", db: Session = Depends(get_db), user
         more = "/opportunities"
     else:
         feed, more = mine, "/me"
+    # 바로가기 카드의 숫자: 각 목록을 기본 조건(마감 안 지난 것)으로 열었을 때 보이는 개수와 같게
+    open_count = lambda scope: db.scalar(select(func.count(Opportunity.id)).where(Opportunity.scope == scope, logic.open_clause(today)))
+    plan = roadmap.plan_for(db, user) if user else None
+    counts = {
+        "roadmap": f"{plan.done}/{plan.total}" if plan else "",
+        "외부": open_count("외부"), "교내": open_count("교내"),
+        "recruit": sum(1 for o in db.scalars(select(Opportunity)) if logic.is_recruit(o) and logic.is_open(o, today)),
+    }
     return templates.TemplateResponse(request, "home.html", {
         "user": user, "urgent": urgent, "tabs": tabs, "tab": tab, "feed": feed, "more": more,
+        "counts": counts, "plan": plan, "stages": roadmap.STAGES,
     })
 
 
