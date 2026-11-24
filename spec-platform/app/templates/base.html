@@ -20,15 +20,31 @@
   </script>
 </head>
 <body>
-  <header class="topbar">
+  {# 상단 바: 폰·태블릿은 로고 + 검색 + 로그인, 컴퓨터(960px 이상)는 가운데에 주요 메뉴가 더 보임.
+     안쪽 폭을 본문(.page)과 같은 값으로 맞춰서 로고와 본문 왼쪽 끝이 한 줄에 섬 #}
+  {% set path = request.url.path %}{% set scope_q = request.query_params.get('scope', '') %}
+  <header class="topbar"><div class="topbar-in">
     <a href="/" class="brand"><b>스펙로드</b><span>고려대학교 세종캠퍼스</span></a>
-    {% if user %}<a class="who" href="/profile/new">{{ user.nickname }} · {{ user.department.name }}</a>{% else %}<a class="who login" href="/login">로그인</a>{% endif %}
-  </header>
+    <nav class="topnav" aria-label="주요 메뉴">
+      {% for href, label, on in [('/roadmap', '로드맵', path.startswith('/roadmap')),
+                                 ('/opportunities?scope=외부', '대외활동', path == '/opportunities' and scope_q == '외부'),
+                                 ('/recruit', '인턴·채용', path.startswith('/recruit')),
+                                 ('/opportunities?scope=교내', '교내 프로그램', path == '/opportunities' and scope_q == '교내')] %}
+      <a href="{{ href }}" class="{{ 'on' if on }}" {{ 'aria-current=page' if on }}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="top-actions">
+      <a class="icon-btn" href="/recruit" aria-label="공고 검색"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg></a>
+      {% if user %}<a class="who" href="/profile/new"><span class="who-mono" aria-hidden="true">{{ user.nickname[:1] }}</span><span class="who-name">{{ user.nickname }} · {{ user.department.name }}</span></a>{% else %}<a class="who login" href="/login">로그인</a>{% endif %}
+    </div>
+  </div></header>
 
-  <main class="page">
+  <main class="page {% block page_class %}narrow{% endblock %}">
     {% block content %}{% endblock %}
-    <p class="legal">비공식 학생 프로젝트 · 공지 원문을 꼭 확인하세요 · <a href="/privacy">개인정보 안내</a></p>
   </main>
+  <footer class="foot">
+    <p class="legal">비공식 학생 프로젝트 · 공지 원문을 꼭 확인하세요 · <a href="/privacy">개인정보 안내</a></p>
+  </footer>
 
   <!-- 앱처럼 보이게 하는 하단 탭 -->
   <div class="tabbar"><nav aria-label="하단 메뉴">
@@ -45,6 +61,12 @@
   <script>
     // 서비스 워커 등록: 폰 '홈 화면에 추가'와 오프라인 안내를 가능하게 함
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+    // 목록의 필터 칸(<details data-desktop-open>): 컴퓨터 화면에서는 늘 펼쳐 둠 (폰에서는 접어 둔 채 '필터'를 눌러 엶)
+    (function () {
+      var wide = matchMedia("(min-width: 960px)");
+      function sync() { document.querySelectorAll("details[data-desktop-open]").forEach(function (d) { if (wide.matches) d.open = true; }); }
+      sync(); if (wide.addEventListener) wide.addEventListener("change", sync);
+    })();
   </script>
 </body>
 </html>

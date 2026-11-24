@@ -4,7 +4,7 @@
 // 서버가 잠들어 있어 화면 이동이 SPLASH_AFTER_MS보다 오래 걸리면, 저장해 둔 시작 화면(/static/splash.html)을 대신 보여 줌.
 //   - 실제로 기다릴 때만 보임(빠른 페이지는 그대로). GET 화면 이동에만 적용(POST·폼 제출·/api·/static·/healthz 제외).
 //   - 시작 화면은 /healthz를 확인하다가 서버가 깨어나면 같은 주소를 다시 불러옴.
-const CACHE = "specroad-v15";
+const CACHE = "specroad-v16";
 const SHELL = ["/static/style.css", "/static/progress.js", "/static/icon.svg", "/static/icon-192.png", "/static/splash.html"];
 const SPLASH_AFTER_MS = 1500;
 const AWAKE_GRACE_MS = 30000;  // 서버가 깨어 있는 것을 방금 확인했으면 이 시간 동안은 시작 화면을 띄우지 않음(다시 불러올 때 시작 화면이 반복되는 것 방지)
