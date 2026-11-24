@@ -1,23 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
+{# 홈 구성(구역 4개 이하): 소개 한 줄(로그인 전만) → 검색창·바로가기 → 마감 임박(가로로 넘겨 보기) → 탭이 있는 공고 목록 #}
 {% if request.query_params.get('deleted') %}<p class="notice">내 정보와 후기를 삭제했습니다.</p>{% endif %}
-<section class="hero">
-  <h1>흩어진 학교 프로그램,<br>내 분야 순으로 한 번에</h1>
-  {% if user %}
-    <a class="btn" href="/me">내 추천 보기</a>
-  {% else %}
-    <a class="btn" href="/profile/new">1분 만에 시작하기</a>
-  {% endif %}
+{% if not user %}
+<section class="home-intro">
+  <p>흩어진 학교 프로그램,<br>내 분야 순으로 한 번에</p>
+  <a class="btn inline" href="/profile/new">1분 만에 시작하기</a>
+</section>
+{% endif %}
+
+<section class="home-find">
+  <form class="searchbar" method="get" action="/recruit" role="search">
+    <label class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+      <span class="sr">인턴·채용 공고 검색</span>
+      <input type="search" name="q" placeholder="인턴·채용 공고 검색">
+    </label>
+  </form>
+  <nav class="catbar home-quick" aria-label="바로가기">
+    <div class="catbar-top">
+      <a href="/opportunities?scope=교내">교내</a>
+      <a href="/opportunities?scope=외부">대외활동</a>
+      <a href="/recruit">인턴·채용</a>
+      <a href="/roadmap">로드맵</a>
+    </div>
+  </nav>
 </section>
 
+{% if urgent %}
 <section class="sec">
-  <h2>최근 학교 공지 <a class="more" href="/opportunities">전체</a></h2>
+  <h2>마감 임박 <a class="more" href="/opportunities">전체</a></h2>
+  <div class="hero-strip">
+    {% for o in urgent %}
+    {% set left = (o.deadline - today()).days %}
+    <a class="hero-card" href="/opportunities/{{ o.id }}">
+      <b class="hero-dday {{ 'urgent' if left <= 7 }}">{{ 'D-DAY' if left == 0 else 'D-' ~ left }}</b>
+      <span class="hero-title">{{ o.title }}</span>
+      <span class="hero-meta">{{ display_host(o) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="sec" id="feed">
+  <h2>공고 모아보기</h2>
+  <nav class="home-tabs" aria-label="공고 모아보기 탭">
+    {% for key, label in tabs %}<a href="/?tab={{ key }}#feed" class="{{ 'on' if key == tab }}" {{ 'aria-current=true' if key == tab }}>{{ label }}</a>{% endfor %}
+  </nav>
   <div class="list">
-  {% for o in recent %}
+  {% for o in feed %}
     {% with reasons = none, show_scope = false, meta = none %}{% include "_card.html" %}{% endwith %}
   {% else %}
-    <p class="empty">아직 가져온 공지가 없어요</p>
+    <p class="empty">{{ '위 공고 외에 마감이 가까운 공고가 없어요' if tab == 'urgent' else '아직 가져온 공고가 없어요' }}</p>
   {% endfor %}
   </div>
+  {% if feed %}<a class="more home-more" href="{{ more }}">전체 보기 <span aria-hidden="true">→</span></a>{% endif %}
 </section>
 {% endblock %}

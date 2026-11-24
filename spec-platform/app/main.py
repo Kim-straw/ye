@@ -121,12 +121,31 @@ def build_catbar(active: str, show_closed: bool, sub_names: list[str], sub_selec
 
 # ================= 화면 (HTML) =================
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user)):
-    # 홈 화면용: 실제로 가져온 학교 공지·직접 등록 중 최근 것 3개 (게시일이 없는 글은 뒤로)
-    recent = db.scalars(select(Opportunity).where(Opportunity.is_sample.is_(False))
-                        .order_by(Opportunity.posted_at.is_(None), Opportunity.posted_at.desc(), Opportunity.id.desc())
-                        .limit(3)).all()
-    return templates.TemplateResponse(request, "home.html", {"user": user, "recent": recent})
+def home(request: Request, tab: str = "new", db: Session = Depends(get_db), user: User | None = Depends(current_user)):
+    """홈: 검색창 → 바로가기 → 마감 임박(가로로 넘겨 보기) → 탭이 있는 공고 목록. 모두 DB의 실제 공고만(샘플 제외)"""
+    today = date.today()
+    real_open = select(Opportunity).where(Opportunity.is_sample.is_(False), logic.open_clause(today))
+    # 마감 임박: 마감일이 있는 열린 공고를 마감 가까운 순으로 5개 (규칙은 기존 open_clause·sort_key 그대로)
+    urgent = db.scalars(real_open.where(Opportunity.deadline.is_not(None))
+                        .order_by(Opportunity.deadline, Opportunity.id).limit(5)).all()
+    mine = [r.opportunity for r in logic.recommend(db, user, limit=5)] if user else []
+    tabs = [("new", "새 공고"), ("urgent", "마감 임박")] + ([("mine", "내 분야")] if mine else [])
+    if tab not in {k for k, _ in tabs}:
+        tab = "new"  # 모르는 값이나 쓸 수 없는 탭은 '새 공고'로
+    if tab == "new":
+        feed = db.scalars(real_open.order_by(Opportunity.posted_at.is_(None), Opportunity.posted_at.desc(),
+                                             Opportunity.id.desc()).limit(5)).all()
+        more = "/opportunities"
+    elif tab == "urgent":  # 위 가로 영역에 이미 나온 공고는 빼고 그다음 마감 순 (같은 공고를 두 번 보여 주지 않게)
+        shown = [o.id for o in urgent]
+        feed = db.scalars(real_open.where(Opportunity.deadline.is_not(None), Opportunity.id.not_in(shown or [0]))
+                          .order_by(Opportunity.deadline, Opportunity.id).limit(5)).all()
+        more = "/opportunities"
+    else:
+        feed, more = mine, "/me"
+    return templates.TemplateResponse(request, "home.html", {
+        "user": user, "urgent": urgent, "tabs": tabs, "tab": tab, "feed": feed, "more": more,
+    })
 
 
 def render_profile(request: Request, db: Session, user: User | None, error: str = "", prefill: dict | None = None,

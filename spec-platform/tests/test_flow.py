@@ -278,7 +278,7 @@ def test_detail_profile_home_follow_feedback():
 
     client = TestClient(app)
     home = client.get("/").text
-    assert "career.korea.ac.kr" not in home.split("최근 학교 공지")[1] and "교내 ·" not in home
+    assert "career.korea.ac.kr" not in home.split("공고 모아보기")[1] and "교내 ·" not in home
     p = client.get(f"/opportunities/{pid}").text
     for gone in ("정보 없음", "추천 이유", "아직 없음", "난이도", "소요시간", "학교 공지", "career.korea.ac.kr</p>"):
         assert gone not in p, gone
